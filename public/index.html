@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Alox Dashboard</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #0b0f17;
+      color: white;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: auto;
+      padding: 20px;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 25px;
+    }
+
+    .card {
+      background: #151b27;
+      border: 1px solid #252d3c;
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 18px;
+    }
+
+    .status {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+
+    .online {
+      color: #35e875;
+      font-weight: bold;
+    }
+
+    .offline {
+      color: #ff5555;
+      font-weight: bold;
+    }
+
+    button {
+      border: 0;
+      border-radius: 10px;
+      padding: 12px 18px;
+      margin: 5px;
+      cursor: pointer;
+      font-size: 15px;
+    }
+
+    .start {
+      background: #20c96b;
+      color: white;
+    }
+
+    .stop {
+      background: #e53935;
+      color: white;
+    }
+
+    .save {
+      background: #3578ff;
+      color: white;
+    }
+
+    input,
+    textarea {
+      width: 100%;
+      background: #0d131e;
+      color: white;
+      border: 1px solid #30394b;
+      border-radius: 10px;
+      padding: 12px;
+      margin-top: 8px;
+      margin-bottom: 15px;
+      font-size: 15px;
+    }
+
+    textarea {
+      min-height: 180px;
+      resize: vertical;
+    }
+
+    label {
+      display: block;
+      margin-top: 10px;
+    }
+
+    pre {
+      background: #080c12;
+      padding: 15px;
+      border-radius: 10px;
+      overflow: auto;
+      max-height: 350px;
+      direction: ltr;
+      text-align: left;
+      white-space: pre-wrap;
+    }
+
+    .login {
+      max-width: 400px;
+      margin: 100px auto;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .message {
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 8px;
+      background: #202938;
+    }
+
+    .danger {
+      color: #ff7777;
+    }
+
+    small {
+      color: #9da7b8;
+    }
+  </style>
+</head>
+
+<body>
+
+<!-- صفحة تسجيل الدخول -->
+
+<div id="loginPage" class="container login">
+
+  <div class="card">
+
+    <h1>🔐 Alox Dashboard</h1>
+
+    <label>Dashboard Token</label>
+
+    <input
+      id="tokenInput"
+      type="password"
+      placeholder="أدخل التوكن"
+    >
+
+    <button class="save" onclick="login()">
+      دخول
+    </button>
+
+    <div id="loginMessage"></div>
+
+  </div>
+
+</div>
+
+
+<!-- Dashboard -->
+
+<div id="dashboard" class="container hidden">
+
+  <h1>👑 Alox Dashboard</h1>
+
+
+  <!-- حالة البوت -->
+
+  <div class="card">
+
+    <div class="status">
+
+      <div>
+
+        <h2>حالة البوت</h2>
+
+        <div id="status" class="offline">
+          جاري التحقق...
+        </div>
+
+      </div>
+
+      <div>
+
+        <button
+          class="start"
+          onclick="startBot()"
+        >
+          ▶️ Start Bot
+        </button>
+
+        <button
+          class="stop"
+          onclick="stopBot()"
+        >
+          ⛔ Stop Bot
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <!-- Wox -->
+
+  <div class="card">
+
+    <h2>🔵 Wox Settings</h2>
+
+    <label>
+
+      <input
+        id="woxEnabled"
+        type="checkbox"
+        style="width:auto"
+      >
+
+      تفعيل Wox
+
+    </label>
+
+
+    <label>
+      مدة الإرسال بالميلي ثانية
+    </label>
+
+    <input
+      id="woxInterval"
+      type="number"
+      min="1000"
+      value="15000"
+    >
+
+    <small>
+      15000 = 15 ثانية
+    </small>
+
+
+    <label>
+      رسالة Wox
+    </label>
+
+    <textarea
+      id="woxText"
+      placeholder="اكتب رسالة Wox هنا..."
+    ></textarea>
+
+
+    <button
+      class="save"
+      onclick="saveWox()"
+    >
+      💾 حفظ إعدادات Wox
+    </button>
+
+
+    <div
+      id="woxMessage"
+      class="message"
+    ></div>
+
+  </div>
+
+
+  <!-- Logs -->
+
+  <div class="card">
+
+    <h2>📜 Logs</h2>
+
+    <button
+      class="save"
+      onclick="loadLogs()"
+    >
+      🔄 تحديث Logs
+    </button>
+
+    <pre id="logs">لا توجد Logs بعد...</pre>
+
+  </div>
+
+
+  <!-- Settings -->
+
+  <div class="card">
+
+    <h2>⚙️ Settings</h2>
+
+    <button
+      class="stop"
+      onclick="logout()"
+    >
+      تسجيل الخروج
+    </button>
+
+  </div>
+
+</div>
+
+
+<script>
+
+let TOKEN =
+  localStorage.getItem("dashboard_token");
+
+
+/* Headers */
+
+function headers() {
+
+  return {
+    "Authorization":
+      "Bearer " + TOKEN,
+
+    "Content-Type":
+      "application/json"
+  };
+
+}
+
+
+/* تسجيل الدخول */
+
+async function login() {
+
+  const token =
+    document
+      .getElementById("tokenInput")
+      .value
+      .trim();
+
+
+  if (!token) {
+
+    document
+      .getElementById("loginMessage")
+      .innerText =
+        "⚠️ أدخل التوكن أولاً";
+
+    return;
+
+  }
+
+
+  TOKEN = token;
+
+
+  try {
+
+    const response =
+      await fetch(
+        "/api/status",
+        {
+          headers: {
+            "Authorization":
+              "Bearer " + TOKEN
+          }
+        }
+      );
+
+
+    if (!response.ok) {
+
+      document
+        .getElementById("loginMessage")
+        .innerText =
+          "❌ التوكن غير صحيح";
+
+      TOKEN = null;
+
+      return;
+
+    }
+
+
+    localStorage.setItem(
+      "dashboard_token",
+      TOKEN
+    );
+
+
+    showDashboard();
+
+
+  } catch (error) {
+
+    document
+      .getElementById("loginMessage")
+      .innerText =
+        "❌ تعذر الاتصال بالسيرفر";
+
+  }
+
+}
+
+
+/* إظهار Dashboard */
+
+function showDashboard() {
+
+  document
+    .getElementById("loginPage")
+    .classList
+    .add("hidden");
+
+
+  document
+    .getElementById("dashboard")
+    .classList
+    .remove("hidden");
+
+
+  loadStatus();
+
+  loadWox();
+
+  loadLogs();
+
+}
+
+
+/* حالة البوت */
+
+async function loadStatus() {
+
+  try {
+
+    const response =
+      await fetch(
+        "/api/status",
+        {
+          headers: headers()
+        }
+      );
+
+
+    if (!response.ok) {
+
+      logout();
+
+      return;
+
+    }
+
+
+    const data =
+      await response.json();
+
+
+    const status =
+      document.getElementById(
+        "status"
+      );
+
+
+    if (data.running) {
+
+      status.innerText =
+        "🟢 ONLINE";
+
+      status.className =
+        "online";
+
+    } else {
+
+      status.innerText =
+        "🔴 OFFLINE";
+
+      status.className =
+        "offline";
+
+    }
+
+
+  } catch (error) {
+
+    document
+      .getElementById("status")
+      .innerText =
+        "⚠️ Connection error";
+
+  }
+
+}
+
+
+/* تشغيل البوت */
+
+async function startBot() {
+
+  try {
+
+    await fetch(
+      "/api/bot/start",
+      {
+        method: "POST",
+        headers: headers()
+      }
+    );
+
+
+    loadStatus();
+
+    loadLogs();
+
+
+  } catch (error) {
+
+    alert(
+      "❌ فشل تشغيل البوت"
+    );
+
+  }
+
+}
+
+
+/* إيقاف البوت */
+
+async function stopBot() {
+
+  try {
+
+    await fetch(
+      "/api/bot/stop",
+      {
+        method: "POST",
+        headers: headers()
+      }
+    );
+
+
+    loadStatus();
+
+    loadLogs();
+
+
+  } catch (error) {
+
+    alert(
+      "❌ فشل إيقاف البوت"
+    );
+
+  }
+
+}
+
+
+/* تحميل إعدادات Wox */
+
+async function loadWox() {
+
+  try {
+
+    const response =
+      await fetch(
+        "/api/wox",
+        {
+          headers: headers()
+        }
+      );
+
+
+    if (!response.ok) {
+
+      return;
+
+    }
+
+
+    const data =
+      await response.json();
+
+
+    document
+      .getElementById(
+        "woxEnabled"
+      )
+      .checked =
+        Boolean(data.enabled);
+
+
+    document
+      .getElementById(
+        "woxInterval"
+      )
+      .value =
+        data.interval || 15000;
+
+
+    document
+      .getElementById(
+        "woxText"
+      )
+      .value =
+        data.text || "";
+
+
+  } catch (error) {
+
+    console.error(error);
+
+  }
+
+}
+
+
+/* حفظ Wox */
+
+async function saveWox() {
+
+  const enabled =
+    document
+      .getElementById(
+        "woxEnabled"
+      )
+      .checked;
+
+
+  const interval =
+    Number(
+      document
+        .getElementById(
+          "woxInterval"
+        )
+        .value
+    );
+
+
+  const text =
+    document
+      .getElementById(
+        "woxText"
+      )
+      .value;
+
+
+  if (interval < 1000) {
+
+    alert(
+      "⚠️ أقل مدة مسموحة هي ثانية واحدة"
+    );
+
+    return;
+
+  }
+
+
+  try {
+
+    const response =
+      await fetch(
+        "/api/wox",
+        {
+          method: "POST",
+
+          headers: headers(),
+
+          body: JSON.stringify({
+
+            enabled,
+
+            interval,
+
+            text
+
+          })
+
+        }
+      );
+
+
+    const data =
+      await response.json();
+
+
+    if (data.ok) {
+
+      document
+        .getElementById(
+          "woxMessage"
+        )
+        .innerText =
+          "✅ تم حفظ إعدادات Wox";
+
+    } else {
+
+      document
+        .getElementById(
+          "woxMessage"
+        )
+        .innerText =
+          "❌ حدث خطأ";
+
+    }
+
+
+    loadLogs();
+
+
+  } catch (error) {
+
+    document
+      .getElementById(
+        "woxMessage"
+      )
+      .innerText =
+        "❌ تعذر الاتصال بالسيرفر";
+
+  }
+
+}
+
+
+/* Logs */
+
+async function loadLogs() {
+
+  try {
+
+    const response =
+      await fetch(
+        "/api/logs",
+        {
+          headers: headers()
+        }
+      );
+
+
+    if (!response.ok) {
+
+      return;
+
+    }
+
+
+    const data =
+      await response.json();
+
+
+    document
+      .getElementById(
+        "logs"
+      )
+      .innerText =
+        data.logs.join("\n");
+
+
+  } catch (error) {
+
+    console.error(error);
+
+  }
+
+}
+
+
+/* تسجيل الخروج */
+
+function logout() {
+
+  localStorage.removeItem(
+    "dashboard_token"
+  );
+
+  TOKEN = null;
+
+  location.reload();
+
+}
+
+
+/* تحديث الحالة كل 5 ثواني */
+
+setInterval(() => {
+
+  if (TOKEN) {
+
+    loadStatus();
+
+  }
+
+}, 5000);
+
+
+/* تحميل Dashboard إذا كان التوكن محفوظًا */
+
+if (TOKEN) {
+
+  showDashboard();
+
+}
+
+</script>
+
+</body>
+  </html>
