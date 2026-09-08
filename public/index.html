@@ -95,6 +95,9 @@
     textarea {
       min-height: 180px;
       resize: vertical;
+      font-family: monospace;
+      direction: ltr;
+      text-align: left;
     }
 
     label {
@@ -210,6 +213,36 @@
       </div>
 
     </div>
+
+  </div>
+
+
+  <!-- Cookies / AppState -->
+
+  <div class="card">
+
+    <h2>🍪 إدارة الكوكيز (appstate.json)</h2>
+
+    <label>
+      كود الكوكيز (JSON Format):
+    </label>
+
+    <textarea
+      id="cookiesInput"
+      placeholder="إلصق كود الـ AppState / Cookies هنا بأسلوب JSON..."
+    ></textarea>
+
+    <button
+      class="save"
+      onclick="saveCookies()"
+    >
+      💾 حفظ الكوكيز
+    </button>
+
+    <div
+      id="cookiesMessage"
+      class="message"
+    ></div>
 
   </div>
 
@@ -425,6 +458,8 @@ function showDashboard() {
 
   loadStatus();
 
+  loadCookies();
+
   loadWox();
 
   loadLogs();
@@ -553,6 +588,135 @@ async function stopBot() {
     alert(
       "❌ فشل إيقاف البوت"
     );
+
+  }
+
+}
+
+
+/* تحميل الكوكيز */
+
+async function loadCookies() {
+
+  try {
+
+    const response =
+      await fetch(
+        "/api/cookies",
+        {
+          headers: headers()
+        }
+      );
+
+
+    if (!response.ok) {
+
+      return;
+
+    }
+
+
+    const data =
+      await response.json();
+
+
+    document
+      .getElementById(
+        "cookiesInput"
+      )
+      .value =
+        data.cookies || "";
+
+
+  } catch (error) {
+
+    console.error(error);
+
+  }
+
+}
+
+
+/* حفظ الكوكيز */
+
+async function saveCookies() {
+
+  const cookies =
+    document
+      .getElementById(
+        "cookiesInput"
+      )
+      .value
+      .trim();
+
+
+  if (!cookies) {
+
+    alert(
+      "⚠️ يرجى إدخال كود الكوكيز أولاً"
+    );
+
+    return;
+
+  }
+
+
+  try {
+
+    const response =
+      await fetch(
+        "/api/cookies",
+        {
+          method: "POST",
+
+          headers: headers(),
+
+          body: JSON.stringify({
+
+            cookies
+
+          })
+
+        }
+      );
+
+
+    const data =
+      await response.json();
+
+
+    if (data.ok) {
+
+      document
+        .getElementById(
+          "cookiesMessage"
+        )
+        .innerText =
+          "✅ تم حفظ الكوكيز بنجاح! أعد تشغيل البوت لتطبيق التغييرات.";
+
+    } else {
+
+      document
+        .getElementById(
+          "cookiesMessage"
+        )
+        .innerText =
+          "❌ " + (data.error || "حدث خطأ أثناء الحفظ");
+
+    }
+
+
+    loadLogs();
+
+
+  } catch (error) {
+
+    document
+      .getElementById(
+        "cookiesMessage"
+      )
+      .innerText =
+        "❌ تعذر الاتصال بالسيرفر";
 
   }
 
@@ -807,4 +971,5 @@ if (TOKEN) {
 </script>
 
 </body>
-  </html>
+</html>
+
