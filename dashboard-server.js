@@ -259,13 +259,65 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
-    // AppState update
+    // Get Cookies (من ملف appstate.json)
+    if (req.method === "GET" && req.url === "/api/cookies") {
+      let cookies = "";
+      try {
+        if (fs.existsSync("./appstate.json")) {
+          cookies = fs.readFileSync("./appstate.json", "utf8");
+        }
+      } catch (e) {
+        addLog(`❌ AppState read error: ${e.message}`);
+      }
+
+      return sendJSON(res, 200, { cookies });
+    }
+
+    // Update Cookies (حفظ في ملف appstate.json)
+    if (req.method === "POST" && req.url === "/api/cookies") {
+      const data = await readBody(req);
+
+      let contentToSave = "";
+      if (typeof data.cookies === "string") {
+        contentToSave = data.cookies;
+      } else if (data.appState) {
+        contentToSave = JSON.stringify(data.appState, null, 2);
+      } else {
+        return sendJSON(res, 400, {
+          error: "cookies string or appState is required"
+        });
+      }
+
+      // التحقق من صحة صيغة الـ JSON قبل الحفظ
+      try {
+        JSON.parse(contentToSave);
+      } catch (e) {
+        return sendJSON(res, 400, {
+          error: "Invalid JSON format for appstate"
+        });
+      }
+
+      fs.writeFileSync(
+        "./appstate.json",
+        contentToSave,
+        "utf8"
+      );
+
+      addLog("🍪 AppState updated successfully. Restart bot to apply.");
+
+      return sendJSON(res, 200, {
+        ok: true,
+        message: "AppState saved. Restart the bot to apply it."
+      });
+    }
+
+    // AppState update (المسار القديم للحفاظ على التوافقية)
     if (req.method === "POST" && req.url === "/api/appstate") {
       const data = await readBody(req);
 
-      if (!Array.isArray(data.appState)) {
+      if (!Array.isArray(data.appState) && typeof data.appState !== "object") {
         return sendJSON(res, 400, {
-          error: "appState must be an array"
+          error: "appState must be a valid JSON array or object"
         });
       }
 
@@ -317,3 +369,4 @@ function shutdown() {
 
 process.on("SIGTERM", shutdown);
 process.on("SIGINT", shutdown);
+
