@@ -1,11 +1,19 @@
-const { login } = require("ws3-fca"); 
+const { login } = require("ws3-fca");
 const fs = require("fs");
+
+// 🛡️ حماية السيرفر والداشبورد من الكراش عند حدوث أي خطأ غير متوقع
+process.on("uncaughtException", (err) => {
+  console.error("⚠️ خطأ تم اعتراضه لمنع توقف السيرفر:", err.message);
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("⚠️ Promise رفض غير معالج:", reason);
+});
 
 login({ appState: JSON.parse(fs.readFileSync("./appstate.json", "utf8")) }, (err, api) => {
   if (err) return console.error("❌ فشل تسجيل الدخول:", err);
   console.log("✅ Bot is running...");
 
-  // تفعيل علامة الاستلام والقراءة في الإعدادات
   api.setOptions({ 
     listenEvents: true, 
     selfListen: true, 
@@ -16,75 +24,71 @@ login({ appState: JSON.parse(fs.readFileSync("./appstate.json", "utf8")) }, (err
   let woxInterval = null;
   const adminID = "61593590627474";
 
-  // دالة إرسال آمنة ومباشرة مع Callback
+  // دالة إرسال آمنة
   function safeSend(text, threadID) {
-    api.sendMessage(text, threadID, (sendErr, info) => {
+    if (!api || !threadID) return;
+    api.sendMessage(text, threadID, (sendErr) => {
       if (sendErr) {
-        console.error(`❌ خطأ أثناء الإرسال للمحادثة (${threadID}):`, sendErr);
+        console.error(`❌ خطأ الإرسال (${threadID}):`, sendErr.message || sendErr);
       } else {
-        console.log(`📤 تم الإرسال بنجاح للمحادثة (${threadID})`);
+        console.log(`📤 تم الإرسال بنجاح إلى (${threadID})`);
       }
     });
   }
 
-  // دالة لتحديد المحادثة كمقروءة صراحةً
-  function markReadSmart(threadID) {
+  // دالة تعليم كمقروء آمنة تماماً بدون كراش
+  function markReadSafe(threadID) {
     try {
-      if (typeof api.markAsRead === "function") {
-        api.markAsRead(threadID, (err) => {
-          if (err) console.error("❌ خطأ في تعليم الرسالة كمقروءة:", err);
-        });
+      if (api && typeof api.markAsRead === "function") {
+        api.markAsRead(threadID, () => {});
       }
     } catch (e) {
-      console.error("❌ خطأ في markAsRead:", e.message);
+      // إخفاء الخطأ لعدم إيقاف السكربت
     }
   }
 
   api.listenMqtt((err, event) => {
     try {
       if (err) return console.error("❌ MQTT Error:", err);
-
-      // 🛡️ حماية من أي event ناقص
       if (!event || !event.threadID || !event.senderID) return;
 
-      // ⚡ إذا غادر شخص المجموعة
+      // تعليم الرسالة كمقروءة فور وصولها
+      markReadSafe(event.threadID);
+
+      // مغادرة شخص
       if (event.type === "event" && event.logMessageType === "log:unsubscribe") {
-        markReadSmart(event.threadID);
         return safeSend("غادر المهرج المجموعة", event.threadID);
       }
 
-      // ⚡ أوامر نصية
+      // الرسائل النصية
       if (event.type === "message" || event.type === "message_reply") {
-
         if (!event.body || typeof event.body !== "string") return;
 
         const body = event.body.trim();
         const sender = String(event.senderID).trim();
         const thread = String(event.threadID).trim();
 
-        // 1. الوكس تشغيل
+        // 1. تشغيل الوكس
         if (
           (body === "! الوكس قل لهم الصراحة" || body === "!الوكس قل لهم الصراحة" || body === "/up" || body === "up") &&
           sender === adminID
         ) {
-          markReadSmart(thread); // تعليم كمقروء
           if (woxInterval) clearInterval(woxInterval);
 
           safeSend("🔥🔷𝐓𝐇𝐄 𝐊𝐈𝐍𝐆 𝐀𝐋𝐎𝐗 𝐈𝐒 𝐇𝐄𝐑𝐄 🌪❌", thread);
 
-          const woxText = `𝐊𝐃⃢⏤͟͟͞͞︴💦︴𝐁𝐑⃢⏤͟͟͞͞︴💦︴ 𝐎𝐊⃢⏤͟͟͞͞︴💦︴ 𝐊𝐎⃢⏤͟͟͞͞︴💦︴ 𝐑𝐀⃢⏤͟͟͞͞︴💦︴ 𝐃𝐃⃢⏤͟͟͞͞︴💦︴ 𝐑𝐎⃢⏤͟͟͞͞︴💦︴ 𝐓𝐀⃢⏤͟͟͞͞︴💦︴ 𝐒𝐇⃢⏤͟͟͞͞︴💦︴ 𝐋𝐃⃢⏤͟͟͞͞︴💦︴𝐊𝐃⃢⏤͟͟͞͞︴💦︴𝐁𝐑⃢⏤͟͟͞͞︴💦︴ 𝐎𝐊⃢⏤͟͟͞͞︴💦︴ 𝐊𝐎⃢⏤͟͟͞͞︴💦︴ 𝐑𝐀⃢⏤͟͟͞͞︴💦︴ 𝐃𝐃⃢⏤͟͟͞͞︴💦︴ 𝐑𝐎⃢⏤͟͟͞͞︴💦︴ 𝐓𝐀⃢⏤͟͟͞͞︴💦︴ 𝐒𝐇⃢⏤͟͟͞͞︴💦︴ 𝐋𝐃⃢⏤͟͟͞͞︴💦︴\n\n𝑵⃟𝑮⏤͟͟͞͞┆🎴 ︴𝑯𝑲⃟⏤͟͟͞͞┆ 🎴︴ 𝑶𝑬⃟⏤͟͟͞͞┆ 🎴︴𝑹𝑻⃟⏤͟͟͞͞┆🎴 ︴ 𝑩𝑫⃟⏤͟͟͞͞┆🎴 ︴ 𝑫𝑳⃟⏤͟͟͞͞┆ 🎴︴ 𝑫𝑲⃟⏤͟͟͞͞┆🎴 ︴ 𝒁𝑴⃟⏤͟͟͞͞┆🎴 ︴𝑵⃟𝑮⏤͟͟͞͞┆🎴 ︴𝑯𝑲⃟⏤͟͟͞͞┆ 🎴︴ 𝑶𝑬⃟⏤͟͟͞͞┆ 🎴︴𝑹𝑻⃟⏤͟͟͞͞┆🎴 ︴ 𝑩𝑫⃟⏤͟͟͞͞┆🎴 ︴ 𝑫𝑳⃟⏤͟͟͞͞┆ 🎴︴ 𝑫𝑲⃟⏤͟͟͞͞┆🎴 ︴ 𝒁𝑴⃟⏤͟͟͞͞┆🎴 ︴\n\n𝗠𝗔𝗬𝗕𝗘 𝗬𝗢𝗨'𝗟𝗟 𝗦𝗛𝗢𝗪 𝗦𝗢𝗠𝗘 𝗥𝗘𝗦𝗣𝗘𝗖𝗧 𝗧𝗢 𝗨𝗥 𝗟𝗘𝗔𝗗𝗘𝗥 ࿐ 𝕬𝕷𝕆𝑿 ⸔🔷`;
+          const woxText = `𝐊𝐃⃢⏤͟͟͞͞︴💦︴𝐁𝐑⃢⏤͟͟͞͞︴💦︴ 𝐎𝐊⃢⏤͟͟͞͞︴💦︴ 𝐊𝐎⃢⏤͟͟͞͞︴💦︴ 𝐑𝐀⃢⏤͟͟͞͞︴💦︴ 𝐃𝐃⃢⏤͟͟͞͞︴💦︴ 𝐑𝐎⃢⏤͟͟͞͞︴💦︴ 𝐓𝐀⃢⏤͟͟͞͞︴💦︴ 𝐒𝐇⃢⏤͟͟͞͞︴💦︴ 𝐋𝐃⃢⏤͟͟͞͞︴💦︴\n\n𝑵⃟𝑮⏤͟͟͞͞┆🎴 ︴𝑯𝑲⃟⏤͟͟͞͞┆ 🎴︴ 𝑶𝑬⃟⏤͟͟͞͞┆ 🎴︴𝑹𝑻⃟⏤͟͟͞͞┆🎴 ︴ 𝑩𝑫⃟⏤͟͟͞͞┆🎴 ︴ 𝑫𝑳⃟⏤͟͟͞͞┆ 🎴︴ 𝑫𝑲⃟⏤͟͟͞͞┆🎴 ︴ 𝒁𝑴⃟⏤͟͟͞͞┆🎴 ︴\n\n𝗠𝗔𝗬𝗕𝗘 𝗬𝗢𝗨'𝗟𝗟 𝗦𝗛𝗢𝗪 𝗦𝗢𝗠𝗘 𝗥𝗘𝗦𝗣𝗘𝗖𝗧 𝗧𝗢 𝗨𝗥 𝗟𝗘𝗔𝗗𝗘𝗥 ࿐ 𝕬𝕷𝕆𝑿 ⸔🔷`;
 
           woxInterval = setInterval(() => {
             safeSend(woxText, thread);
           }, 25000);
         }
 
-        // 2. الوكس ايقاف
+        // 2. إيقاف الوكس
         if (
           (body === "! الوكس ايقاف" || body === "!الوكس ايقاف" || body === "/stop" || body === "stop") &&
           sender === adminID
         ) {
-          markReadSmart(thread); // تعليم كمقروء
           if (woxInterval) {
             clearInterval(woxInterval);
             woxInterval = null;
@@ -94,9 +98,8 @@ login({ appState: JSON.parse(fs.readFileSync("./appstate.json", "utf8")) }, (err
           }
         }
 
-        // 3. الوكس (رسالة تحقق)
+        // 3. رسالة التحقق
         if (body === "! الوكس" || body === "!الوكس") {
-          markReadSmart(thread); // تعليم كمقروء
           if (sender === adminID) {
             return safeSend("انا هنا ! ", thread);
           }
@@ -105,7 +108,7 @@ login({ appState: JSON.parse(fs.readFileSync("./appstate.json", "utf8")) }, (err
       }
 
     } catch (e) {
-      console.error("❌ Error caught:", e.message);
+      console.error("❌ Error caught inside listener:", e.message);
     }
   });
 });
