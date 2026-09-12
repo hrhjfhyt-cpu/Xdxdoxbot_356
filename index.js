@@ -23,7 +23,7 @@ process.on("unhandledRejection", (reason) => {
 // ===============================
 const PORT = process.env.PORT || 8080;
 
-// قائمة معرفات الأدمن المعتمدة
+// قائمة معرفات الأدمن المعتمدة (تأكد من مقارنتها مع ما يظهر في السجلات)
 const ADMINS = new Set(["61593590627474", "61593997454796"]);
 function isAdmin(senderID) {
   return ADMINS.has(String(senderID).trim());
@@ -43,7 +43,7 @@ function addLog(msg) {
   const formatted = `[${timestamp}] ${msg}`;
   console.log(formatted);
   logsHistory.push(formatted);
-  if (logsHistory.length > 250) logsHistory.shift();
+  if (logsHistory.length > 300) logsHistory.shift();
 }
 
 function getUptime() {
@@ -104,17 +104,16 @@ let botStatus = "OFFLINE";
 let activeWoxThreads = new Map();
 let currentApi = null;
 
-// دالة إرسال ذكية: تحاول عمل مؤشر كتابة مع مهلة أقصاها 800ms، إذا تعطلت ترسل فوراً بدونه!
+// دالة إرسال ذكية تحمي البوت من التعليق في Typing Indicator
 async function sendMessageSmart(api, messageText, threadID, typingDuration = 1000) {
-  // 1. محاولة إظهار مؤشر الكتابة مع حماية من التجمد
   const showTypingWithTimeout = new Promise((resolve) => {
     let done = false;
     const timer = setTimeout(() => {
       if (!done) {
         done = true;
-        resolve(false); // انقضى الوقت ولم يستجب فيسبوك
+        resolve(false);
       }
-    }, 800); // مهلة 800 ميلي ثانية فقط
+    }, 800);
 
     try {
       api.sendTypingIndicator(threadID, (err) => {
@@ -135,14 +134,12 @@ async function sendMessageSmart(api, messageText, threadID, typingDuration = 100
 
   const typingSuccess = await showTypingWithTimeout;
 
-  // إذا نجح مؤشر الكتابة ننتظر الوقت المطلوب، وإذا فشل ننتظر تأخير بسيط جداً (400ms) لمنع الحظر
   if (typingSuccess) {
     await new Promise((r) => setTimeout(r, typingDuration));
   } else {
     await new Promise((r) => setTimeout(r, 400));
   }
 
-  // 2. إرسال الرسالة الفعلي
   return new Promise((resolve) => {
     try {
       api.sendMessage(messageText, threadID, (err, info) => {
@@ -193,7 +190,7 @@ function startBotEngine() {
     try {
       api.setOptions({
         listenEvents: true,
-        selfListen: false,
+        selfListen: false, // غيرها إلى true إذا كنت تختبر من نفس حساب البوت نفسه
         autoMarkDelivery: false,
         listenTyping: false
       });
@@ -238,10 +235,18 @@ function startBotEngine() {
 
     savedThreads.forEach((tId) => startWoxLoop(tId));
 
-    // الاستماع للأحداث والرسائل (للأدمن فقط)
+    // الاستماع للأحداث برصد شامل واختبار للأدمن
     api.listenMqtt(async (err, event) => {
       try {
-        if (err || !event) return;
+        if (err) {
+          addLog(`❌ MQTT ERROR: ${JSON.stringify(err)}`);
+          return;
+        }
+
+        if (!event) return;
+
+        // طباعة تشخيصية مفصلة لكل حدث يصل
+        addLog(`📡 [EVENT RECEIVED] Type: ${event.type} | SenderID: ${event.senderID} | Body: "${event.body || ''}"`);
 
         if (event.type === "message" || event.type === "message_reply") {
           const body = String(event.body || "").trim();
@@ -250,12 +255,13 @@ function startBotEngine() {
 
           if (!body) return;
 
-          // تصفية فورية: إذا لم يكن المرسل أدمن يتم تجاهل الرسالة تماماً وبصمت!
+          // التحقق من صلاحيات الأدمن مع تسجيل التنبيه
           if (!isAdmin(senderID)) {
+            addLog(`⚠️ تم تجاهل أمر من حساب غير مسجل كأدمن (ID الحالي: ${senderID})`);
             return;
           }
 
-          addLog(`📩 [رسالة أدمن] من ID: (${senderID}) | النص: "${body}"`);
+          addLog(`📩 [أمر أدمن مقبول] من ID: (${senderID}) | النص: "${body}"`);
 
           // 1. أمر تشغيل الوكس
           if (body.includes("/الوكس تشغيل") || body.includes("! الوكس قل لهم الصراحة")) {
