@@ -280,7 +280,7 @@ login(loginOptions, (err, api) => {
   const woxIntervals = new Map();
 
   const adminID =
-    "61594108102958";
+    "61593590627474";
 
   // ===============================
   // Start Wox
