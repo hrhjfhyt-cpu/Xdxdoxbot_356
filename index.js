@@ -20,29 +20,23 @@ function loadAppState() {
       );
     }
 
-    // تحويل صيغة CookieEditor:
-    // name / value
-    //
-    // إلى صيغة:
-    // key / value
-
+    // تحويل صيغ الكوكيز المختلفة وضمان البنية المطلوبة
     const appState = cookies
       .filter(cookie =>
         cookie &&
         typeof cookie === "object" &&
-        cookie.value !== undefined
+        (cookie.value !== undefined || cookie.cookie !== undefined)
       )
       .map(cookie => ({
-        key:
-          cookie.key ||
-          cookie.name,
-        value:
-          String(cookie.value)
+        key: String(cookie.key || cookie.name || ""),
+        value: String(cookie.value || cookie.cookie || ""),
+        domain: String(cookie.domain || "facebook.com"),
+        path: String(cookie.path || "/"),
+        hostOnly: Boolean(cookie.hostOnly ?? false),
+        creation: cookie.creation || new Date().toISOString(),
+        lastAccessed: cookie.lastAccessed || new Date().toISOString()
       }))
-      .filter(cookie =>
-        typeof cookie.key === "string" &&
-        cookie.key.length > 0
-      );
+      .filter(cookie => cookie.key.length > 0);
 
     if (appState.length === 0) {
       throw new Error(
@@ -66,8 +60,12 @@ function loadAppState() {
   }
 }
 
+// قراءة الكوكيز من الملف
+const parsedCookies = loadAppState();
+
+// إعداد الخيارات بحيث نمرر الكوكيز بصيغة JSON String إذا كانت المكتبة تتطلب ذلك
 const loginOptions = {
-  appState: loadAppState()
+  appState: parsedCookies
 };
 
 // ===============================
@@ -212,10 +210,27 @@ function removeWoxThread(threadID) {
 }
 
 // ===============================
-// Login
+// Login Handling
 // ===============================
 
-login(loginOptions, (err, api) => {
+// دالة محاولة الدعم للتوافقية بين الكائنات والسلاسل النصية
+function performLogin(options, callback) {
+  login(options, (err, api) => {
+    if (err && err.message && err.message.includes("split is not a function")) {
+      // إذا فشلت بالـ Array الجاهز، نحاول إرسالها كـ JSON String أو العكس
+      const altOptions = {
+        ...options,
+        appState: typeof options.appState === "string" 
+          ? JSON.parse(options.appState) 
+          : JSON.stringify(options.appState)
+      };
+      return login(altOptions, callback);
+    }
+    return callback(err, api);
+  });
+}
+
+performLogin(loginOptions, (err, api) => {
   if (err) {
     return console.error(
       "❌ Login error:",
@@ -228,14 +243,16 @@ login(loginOptions, (err, api) => {
   // ===============================
 
   try {
-    api.sessionGuard("./appstate.json", {
-      interval: 3 * 60 * 1000,
-      debounce: 30 * 1000
-    });
+    if (typeof api.sessionGuard === "function") {
+      api.sessionGuard("./appstate.json", {
+        interval: 3 * 60 * 1000,
+        debounce: 30 * 1000
+      });
 
-    console.log(
-      "🔄 SessionGuard is active."
-    );
+      console.log(
+        "🔄 SessionGuard is active."
+      );
+    }
   } catch (e) {
     console.error(
       "❌ SessionGuard error:",
@@ -311,10 +328,12 @@ login(loginOptions, (err, api) => {
     delayMs = 1500
   ) {
     try {
-      api.sendTypingIndicator(
-        threadID,
-        () => {}
-      );
+      if (typeof api.sendTypingIndicator === "function") {
+        api.sendTypingIndicator(
+          threadID,
+          () => {}
+        );
+      }
 
       await new Promise(resolve =>
         setTimeout(resolve, delayMs)
@@ -682,7 +701,7 @@ login(loginOptions, (err, api) => {
             }
 
             sendMessageWithTyping(
-              "ڪ│😂⇦𖤛🧞‍♂️┋ـسـ╾༺☄️༻╿ـمـ︻︽『🐉🈴』𒆙𒋨🔥 🦅𒁂𒁎ـڪ ",
+              "ڪ│😂⇦𖤛🧞‍♂️┋ـسـ╾༺☄️༻╿ـمـ︻︽『🐉』𒆙𒋨🔥 🦅𒁂𒁎ـڪ ",
               event.threadID
             );
           }
