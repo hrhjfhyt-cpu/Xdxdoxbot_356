@@ -2,13 +2,72 @@ const { login } = require("ws3-fca");
 const fs = require("fs");
 
 // ===============================
-// Login
+// Login / AppState
 // ===============================
 
+function loadAppState() {
+  try {
+    const raw = fs.readFileSync(
+      "./appstate.json",
+      "utf8"
+    );
+
+    const cookies = JSON.parse(raw);
+
+    if (!Array.isArray(cookies)) {
+      throw new Error(
+        "appstate.json must contain a JSON array."
+      );
+    }
+
+    // تحويل صيغة CookieEditor:
+    // name / value
+    //
+    // إلى صيغة:
+    // key / value
+
+    const appState = cookies
+      .filter(cookie =>
+        cookie &&
+        typeof cookie === "object" &&
+        cookie.value !== undefined
+      )
+      .map(cookie => ({
+        key:
+          cookie.key ||
+          cookie.name,
+        value:
+          String(cookie.value)
+      }))
+      .filter(cookie =>
+        typeof cookie.key === "string" &&
+        cookie.key.length > 0
+      );
+
+    if (appState.length === 0) {
+      throw new Error(
+        "No valid cookies found in appstate.json."
+      );
+    }
+
+    console.log(
+      `🍪 Loaded ${appState.length} cookies.`
+    );
+
+    return appState;
+
+  } catch (e) {
+    console.error(
+      "❌ Failed to load appstate.json:",
+      e.message
+    );
+
+    process.exit(1);
+  }
+}
+
 const loginOptions = {
-  appState: JSON.parse(
-    fs.readFileSync("./appstate.json", "utf8")
-  )
+  appState: loadAppState()
 };
 
 // ===============================
@@ -46,8 +105,8 @@ const DEFAULT_WOX_TEXT = `*𝐀𝐥𝐨𝐱'𝐬 𝐫𝐞𝐩𝐥𝐲 🫸🔵�
 𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋
 𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋
 𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋
-𖥡┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅𖥡
-𝑡𝔥𝔢 𝔮𝔩𝔬𝔵 𝔮𝔩𝑤𝔮𝑦𝑠 𝑠𝑡𝔢𝑝𝑠 𝑜𝑛 𝑠𝑝𝑖𝑑𝑒𝑟𝑠 𝔮𝑛𝑑 𝔦𝔫𝔰𝔢𝑐𝑡𝑠 𝔩𝔦𝔨𝔢 𝔪𝔬𝑐𝑟𝑜𝑤𝔮𝑡.
+𖥡┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅𖥡
+𝑡𝔥𝔢 𝔮𝔩𝔬𝔵 𝔮𝔩𝑤𝔮𝑦𝑠 𝑠𝑡𝔢𝑝𝑠 𝑜𝑛 𝑠𝑝𝑖𝑑𝑒𝑟𝑠 𝔮𝑛𝑑 𝑖𝔫𝑠𝑒𝑐𝑡𝑠 𝔩𝔦𝔨𝔢 𝔪𝔬𝑐𝑟𝔬𝑤𝔮𝔱.
 
                            ↫🪫↬
 
