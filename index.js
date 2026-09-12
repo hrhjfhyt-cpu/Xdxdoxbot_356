@@ -1,4 +1,4 @@
-const { login } = require("fca-unoficial");
+const { login } = require("fca-unofficial");
 const fs = require("fs");
 
 // ===============================
