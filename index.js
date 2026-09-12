@@ -31,8 +31,16 @@ function addLog(msg) {
   if (logsHistory.length > 300) logsHistory.shift();
 }
 
+// دالة تنظيف النص وتوحيد الأشكال لتفادي مشاكل الهمزات
+function normalizeText(str) {
+  return String(str || "")
+    .toLowerCase()
+    .replace(/[أإآ]/g, "ا")
+    .trim();
+}
+
 // ===============================
-// 2. قراءة الكوكيز والإعدادات الموثوقة
+// 2. قراءة الكوكيز والإعدادات
 // ===============================
 function getValidAppState() {
   if (!fs.existsSync(appStateFile)) return null;
@@ -60,30 +68,20 @@ function getWoxConfig() {
 }
 
 // ===============================
-// 3. المحرك ودوال الإرسال المضمونة
+// 3. المحرك ودوال الإرسال
 // ===============================
 let botStatus = "OFFLINE";
 let activeWoxThreads = new Map();
 let currentApi = null;
+let cookieRefreshTimer = null;
 
-async function sendMessageSmart(api, messageText, threadID, delayMs = 300) {
-  if (delayMs > 0) {
-    await new Promise((r) => setTimeout(r, delayMs));
-  }
-
-  return new Promise((resolve) => {
-    try {
-      api.sendMessage(messageText, threadID, (err, info) => {
-        if (err) {
-          addLog(`❌ فشل الإرسال إلى (${threadID}): ${err.errorDescription || err.message || JSON.stringify(err)}`);
-        } else {
-          addLog(`📤 تم الإرسال بنجاح إلى (${threadID})`);
-        }
-        resolve(info);
-      });
-    } catch (e) {
-      addLog(`❌ خطأ غير متوقع عند الإرسال: ${e.message}`);
-      resolve(null);
+function sendMessageDirect(api, text, threadID) {
+  if (!api) return;
+  api.sendMessage(text, threadID, (err, info) => {
+    if (err) {
+      addLog(`❌ فشل الإرسال إلى (${threadID}): ${err.errorDescription || err.message || JSON.stringify(err)}`);
+    } else {
+      addLog(`📤 تم الإرسال بنجاح إلى (${threadID})`);
     }
   });
 }
@@ -103,7 +101,7 @@ function startWoxLoop(api, threadID) {
 
   const config = getWoxConfig();
   addLog(`🚀 بداية تشغيل الوكس في المحادثة: ${threadID}`);
-  sendMessageSmart(api, config.text, threadID, 300);
+  sendMessageDirect(api, config.text, threadID);
 
   const timer = setInterval(() => {
     if (botStatus !== "ONLINE") {
@@ -111,15 +109,31 @@ function startWoxLoop(api, threadID) {
       return;
     }
     const cfg = getWoxConfig();
-    sendMessageSmart(api, cfg.text, threadID, 300);
+    sendMessageDirect(api, cfg.text, threadID);
   }, config.interval);
 
   activeWoxThreads.set(threadID, timer);
 }
 
+function saveCurrentAppState(api) {
+  try {
+    if (api && typeof api.getAppState === "function") {
+      const refreshedState = api.getAppState();
+      fs.writeFileSync(appStateFile, JSON.stringify(refreshedState, null, 2), "utf8");
+      addLog("🔄 [تحديث تلقائي] تم حفظ وتحديث appstate.json بنجاح.");
+    }
+  } catch (e) {
+    addLog(`⚠️ فشل التحديث التلقائي لـ appstate.json: ${e.message}`);
+  }
+}
+
 function stopBotEngine() {
   activeWoxThreads.forEach((timer) => clearInterval(timer));
   activeWoxThreads.clear();
+  if (cookieRefreshTimer) {
+    clearInterval(cookieRefreshTimer);
+    cookieRefreshTimer = null;
+  }
   currentApi = null;
   botStatus = "OFFLINE";
   addLog("⛔ تم إيقاف البوت بشكل كامل.");
@@ -158,6 +172,11 @@ function startBotEngine() {
 
     addLog("✅ تم تشغيل البوت بنجاح ومستعد لاستقبال الأوامر!");
 
+    // حفظ وتحديث الكوكيز تلقائياً كل دقيقتين
+    cookieRefreshTimer = setInterval(() => {
+      saveCurrentAppState(api);
+    }, 2 * 60 * 1000);
+
     api.listenMqtt((err, event) => {
       try {
         if (err) {
@@ -167,31 +186,46 @@ function startBotEngine() {
 
         if (!event) return;
 
-        addLog(`📡 [EVENT RECEIVED] Type: ${event.type} | SenderID: ${event.senderID} | Body: "${event.body || ''}"`);
-
         if (event.type === "message" || event.type === "message_reply") {
-          const body = String(event.body || "").trim();
+          const rawBody = String(event.body || "").trim();
           const senderID = String(event.senderID || "").trim();
           const threadID = String(event.threadID || "").trim();
 
-          if (!body) return;
+          if (!rawBody) return;
 
           if (!isAdmin(senderID)) {
-            addLog(`⚠️ تم تجاهل أمر من حساب غير مسجل كأدمن (ID الحالي: ${senderID})`);
+            addLog(`⚠️ أمر مرفوض من ID غير مسجل: ${senderID}`);
             return;
           }
 
-          addLog(`📩 [أمر أدمن مقبول] من ID: (${senderID}) | النص: "${body}"`);
+          addLog(`📩 [أمر مقبول] من (${senderID}) | المحادثة (${threadID}) | النص: "${rawBody}"`);
 
-          if (body.includes("/الوكس تشغيل") || body.includes("الوكس تشغيل")) {
-            startWoxLoop(api, threadID);
-            sendMessageSmart(api, "🔥🔷𝐓𝐇𝐄 𝐊𝐈𝐍𝐆 𝐀𝐋𝐎𝐗 𝐈𝐒 𝐇𝐄𝐑𝐄 🌪❌", threadID, 500);
-          } else if (body.includes("/stop") || body.includes("الوكس ايقاف") || body.includes("الوكس إيقاف")) {
+          const cleanText = normalizeText(rawBody);
+
+          // 1. أوامر الإيقاف الشاملة (/stop, ايقاف, stop, الوكس ايقاف)
+          if (
+            cleanText === "/stop" ||
+            cleanText === "stop" ||
+            cleanText.includes("ايقاف") ||
+            cleanText.includes("توقف")
+          ) {
             if (stopWoxLoop(threadID)) {
-              sendMessageSmart(api, "𝙏𝙃𝙀 𝘼𝙇𝙊𝙓 𝙈𝙊𝘿𝙀 𝙄𝙎 𝙎𝙏𝙊𝙋𝙋𝙀𝘿 ❌", threadID, 500);
+              sendMessageDirect(api, "𝙏𝙃𝙀 𝘼𝙇𝙊𝙓 𝙈𝙊𝘿𝙀 𝙄𝙎 𝙎𝙏𝙊𝙋𝙋𝙀𝘿 ❌", threadID);
             } else {
-              sendMessageSmart(api, "متت اختفو 😂", threadID, 500);
+              sendMessageDirect(api, "الوكس غير مفعل حالياً.", threadID);
             }
+          } 
+          // 2. أوامر التشغيل (/الوكس, /الوكوس, /up, up, الوكس تشغيل)
+          else if (
+            cleanText.includes("الوكس") ||
+            cleanText.includes("الوكوس") ||
+            cleanText.includes("/up") ||
+            cleanText === "up" ||
+            cleanText === "/alox" ||
+            cleanText === "alox"
+          ) {
+            startWoxLoop(api, threadID);
+            sendMessageDirect(api, "🔥🔷𝐓𝐇𝐄 𝐊𝐈𝐍𝐆 𝐀𝐋𝐎𝐗 𝐈𝐒 𝐇𝐄𝐑𝐄 🌪❌", threadID);
           }
         }
       } catch (e) {
@@ -202,7 +236,7 @@ function startBotEngine() {
 }
 
 // ===============================
-// 4. خادم الداشبورد
+// 4. الداشبورد
 // ===============================
 app.get("/", (req, res) => {
   const currentAppState = fs.existsSync(appStateFile) ? fs.readFileSync(appStateFile, "utf8") : "[]";
