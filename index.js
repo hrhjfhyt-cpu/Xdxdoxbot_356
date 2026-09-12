@@ -3,6 +3,17 @@ const fs = require("fs");
 const path = require("path");
 
 // ===============================
+// 0. حماية العملية من الكراش (Crash Guard)
+// ===============================
+process.on("uncaughtException", (err) => {
+  console.error("⚠️ [Crash Prevented] تم إلتقاط خطأ غير معالج:", err.message || err);
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("⚠️ [Crash Prevented] تم إلتقاط وعد مرفوض:", reason);
+});
+
+// ===============================
 // 1. تحميل وتجهيز الكوكيز (AppState)
 // ===============================
 function getValidAppState() {
@@ -16,7 +27,6 @@ function getValidAppState() {
     const rawData = fs.readFileSync(appStatePath, "utf8");
     const parsedData = JSON.parse(rawData);
 
-    // استخراج المصفوفة بغض النظر عن طريقة تصديرها من الإضافة
     let cookies = [];
     if (Array.isArray(parsedData)) {
       cookies = parsedData;
@@ -84,7 +94,7 @@ login({ appState: getValidAppState() }, (loginError, api) => {
     return;
   }
 
-  // ضبط خيارات الجلسة بشكل متوافق مع MQTT
+  // ضبط خيارات الجلسة بشكل آمن
   api.setOptions({
     listenEvents: true,
     selfListen: true,
@@ -95,17 +105,23 @@ login({ appState: getValidAppState() }, (loginError, api) => {
 
   console.log("🚀 تم تشغيل البوت والاستماع للأحداث بنجاح...");
 
-  // دالة بدء الوكس
+  // دالة بدء الوكس مع معالجة الأخطاء
   function startWoxLoop(threadID) {
     if (activeWoxThreads.has(threadID)) return;
 
     const intervalId = setInterval(() => {
-      const config = getWoxConfig();
-      if (!config.enabled) return;
+      try {
+        const config = getWoxConfig();
+        if (!config.enabled) return;
 
-      api.sendMessage(config.text, threadID, (err) => {
-        if (err) console.error(`⚠️ فشل إرسال الوكس للمجموعة ${threadID}:`, err.message || err);
-      });
+        api.sendMessage(config.text, threadID, (err) => {
+          if (err) {
+            // تتجاهل الأخطاء العابرة كي لا تتوقف العملية
+          }
+        });
+      } catch (err) {
+        console.error("⚠️ خطأ داخل الوكس لـ:", threadID, err.message);
+      }
     }, getWoxConfig().interval);
 
     activeWoxThreads.set(threadID, intervalId);
@@ -137,47 +153,49 @@ login({ appState: getValidAppState() }, (loginError, api) => {
   // ===============================
   api.listenMqtt((err, event) => {
     if (err) {
-      // تجاهل أخطاء التشفير العابرة لضمان عدم توقف الـ Listener
-      if (err.error === "Not logged in" || (err.message && err.message.includes("E2EE"))) return;
-      console.error("⚠️ خطأ في الاستماع:", err);
+      // إهمال أخطاء MQTT التي تسبب الكراش
       return;
     }
 
     if (!event || !event.type) return;
 
-    // التعامل مع مغادرة الأعضاء
-    if (event.type === "event" && event.logMessageType === "log:unsubscribe") {
-      api.sendMessage(" غادر المهرج المجموعة", event.threadID);
-      return;
-    }
+    try {
+      // التعامل مع مغادرة الأعضاء
+      if (event.type === "event" && event.logMessageType === "log:unsubscribe") {
+        api.sendMessage(" غادر المهرج المجموعة", event.threadID, () => {});
+        return;
+      }
 
-    // التعامل مع الرسائل
-    if (event.type === "message" || event.type === "message_reply") {
-      const messageText = (event.body || "").trim();
-      const sender = String(event.senderID);
-      const thread = String(event.threadID);
-      const isUserAdmin = sender === adminID;
+      // التعامل مع الرسائل
+      if (event.type === "message" || event.type === "message_reply") {
+        const messageText = (event.body || "").trim();
+        const sender = String(event.senderID);
+        const thread = String(event.threadID);
+        const isUserAdmin = sender === adminID;
 
-      // الأوامر
-      if (messageText === "/الوكس تشغيل" && isUserAdmin) {
-        stopWoxLoop(thread);
-        api.sendMessage("🔥🔷𝐓𝐇𝐄 𝐊𝐈𝐍𝐆 𝐀LWX 𝐈𝐒 𝐇𝐄𝐑𝐄 🌪❌", thread, () => {
-          startWoxLoop(thread);
-        });
-      } else if ((messageText === "! الوكس ايقاف" || messageText === "!الوكس ايقاف") && isUserAdmin) {
-        stopWoxLoop(thread);
-        api.sendMessage("𝙏𝙃𝙀 𝘼𝙇𝙊𝙙 𝙈𝙊𝘿𝙀 𝙄𝙎 𝙎𝙏𝙊𝙋𝙋𝙀𝘿 ❌", thread);
-      } else if (messageText === "! ألوكس" || messageText === "!ألوكس") {
-        if (isUserAdmin) {
-          api.sendMessage("👑 𝐀𝐥𝐨x'𝐬 𝐵𝑂َ𝑇 𝐢𝐬 𝐨𝐧 👑\n🔵 𝗬𝗼𝘂 𝘄𝗮𝗻𝘁 𝘁𝗼 𝘀𝘁𝗮𝗿𝘁?", thread);
-        }
-      } else if (messageText === "! الوكس" || messageText === "!الوكس") {
-        if (isUserAdmin) {
-          api.sendMessage("انا هنا !", thread);
-        } else {
-          api.sendMessage("ڪ│😂⇦𖤛🧞‍♂️┋ـسـ╾༺☄️༻╿ـمـ︻︽『🐉』𒆙𒋨🔥 🦅𒁂𒁎ـڪ", thread);
+        // الأوامر
+        if (messageText === "/الوكس تشغيل" && isUserAdmin) {
+          stopWoxLoop(thread);
+          api.sendMessage("🔥🔷𝐓𝐇𝐄 𝐊𝐈𝐍𝐆 𝐀LWX 𝐈𝐒 𝐇𝐄𝐑𝐄 🌪❌", thread, () => {
+            startWoxLoop(thread);
+          });
+        } else if ((messageText === "! الوكس ايقاف" || messageText === "!الوكس ايقاف") && isUserAdmin) {
+          stopWoxLoop(thread);
+          api.sendMessage("𝙏𝙃𝙀 𝘼𝙇𝙊𝙙 𝙈𝙊𝘿𝙀 𝙄𝙎 𝙎𝙏𝙊𝙋𝙋𝙀𝘿 ❌", thread, () => {});
+        } else if (messageText === "! ألوكس" || messageText === "!ألوكس") {
+          if (isUserAdmin) {
+            api.sendMessage("👑 𝐀𝐥𝐨x'𝐬 𝐵𝑂َ𝑇 𝐢𝐬 𝐨𝐧 👑\n🔵 𝗬𝗼𝘂 𝘄𝗮𝗻𝘁 𝘁𝗼 𝘀𝘁𝗮𝗿𝘁?", thread, () => {});
+          }
+        } else if (messageText === "! الوكس" || messageText === "!الوكس") {
+          if (isUserAdmin) {
+            api.sendMessage("انا هنا !", thread, () => {});
+          } else {
+            api.sendMessage("ڪ│😂⇦𖤛🧞‍♂️┋ـسـ╾༺☄️༻╿ـمـ︻︽『🐉』𒆙🔥 🦅𒁂𒁎ـڪ", thread, () => {});
+          }
         }
       }
+    } catch (evtErr) {
+      console.error("⚠️ خطأ في معالجة الحدث:", evtErr.message);
     }
   });
 });
