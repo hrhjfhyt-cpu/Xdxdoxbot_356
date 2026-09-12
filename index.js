@@ -23,6 +23,7 @@ process.on("unhandledRejection", (reason) => {
 // ===============================
 const PORT = process.env.PORT || 8080;
 const adminID = "61593590627474";
+const startTime = Date.now(); // حساب وقت بداية تشغيل البوت لأمر /up
 
 const appStateFile = path.join(__dirname, "appstate.json");
 const woxConfigFile = path.join(__dirname, "wox_config.json");
@@ -39,31 +40,25 @@ function addLog(msg) {
   if (logsHistory.length > 250) logsHistory.shift();
 }
 
+// دالة لحساب مدة التشغيل لأمر /up
+function getUptime() {
+  const totalSeconds = Math.floor((Date.now() - startTime) / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return `${hours} ساعة و ${minutes} دقيقة و ${seconds} ثانية`;
+}
+
 // ===============================
-// 2. إدارة ملفات التهيئة والكوكيز وإصلاح التنسيق
+// 2. إدارة ملفات التهيئة والكوكيز
 // ===============================
 function getValidAppState() {
   if (!fs.existsSync(appStateFile)) return null;
   try {
     const rawData = fs.readFileSync(appStateFile, "utf8").trim();
     if (!rawData) return null;
-    const parsed = JSON.parse(rawData);
-    
-    // التأكد من تهيئة الكوكيز بصيغة خالية من الأخطاء لمكتبة ws3-fca
-    let cookies = Array.isArray(parsed) ? parsed : (parsed && parsed.appState ? parsed.appState : []);
-    
-    // إصلاح المفاتيح للتأكد من مطابقتها للتنسيق المطلوب
-    cookies = cookies.map(c => ({
-      key: c.key || c.name,
-      value: c.value,
-      domain: c.domain || "facebook.com",
-      path: c.path || "/",
-      hostOnly: c.hostOnly ?? false,
-      creation: c.creation || new Date().toISOString(),
-      lastAccessed: c.lastAccessed || new Date().toISOString()
-    }));
-
-    return cookies.length > 0 ? cookies : null;
+    JSON.parse(rawData);
+    return rawData;
   } catch (e) {
     addLog(`❌ خطأ في قراءة ملف appstate.json: ${e.message}`);
     return null;
@@ -105,22 +100,16 @@ let botStatus = "OFFLINE";
 let activeWoxThreads = new Map();
 let currentApi = null;
 
-function sendMessageWithTyping(api, messageText, threadID, durationMs = 2500) {
+// إصلاح الاستجابة وتفادي توقف الرسائل
+function sendMessageDirect(api, messageText, threadID) {
   return new Promise((resolve) => {
     try {
-      api.sendTypingIndicator(threadID, (err) => {
-        setTimeout(() => {
-          try { api.sendTypingIndicator(threadID, () => {}); } catch(e){}
-          api.sendMessage(messageText, threadID, (sendErr, messageInfo) => {
-            if (sendErr) {
-              addLog(`❌ خطأ إرسال لـ ${threadID}: ${sendErr.message || sendErr}`);
-            }
-            resolve(messageInfo);
-          });
-        }, durationMs);
+      api.sendMessage(messageText, threadID, (err, info) => {
+        if (err) addLog(`❌ خطأ إرسال لـ ${threadID}: ${err.message || err}`);
+        resolve(info);
       });
     } catch (e) {
-      api.sendMessage(messageText, threadID, () => resolve());
+      resolve();
     }
   });
 }
@@ -136,8 +125,8 @@ function stopBotEngine() {
 function startBotEngine() {
   if (botStatus === "ONLINE") return;
 
-  const cookies = getValidAppState();
-  if (!cookies) {
+  const appStateRaw = getValidAppState();
+  if (!appStateRaw) {
     addLog("❌ ملف appstate.json غير موجود أو غير صالح.");
     botStatus = "OFFLINE";
     return;
@@ -145,8 +134,7 @@ function startBotEngine() {
 
   addLog(`▶️ جاري تشغيل البوت...`);
 
-  // إرسال الكوكيز كـ Object يحتوي على appState لتفادي خطأ split
-  login({ appState: cookies }, (loginErr, api) => {
+  login({ appState: appStateRaw }, (loginErr, api) => {
     if (loginErr) {
       addLog(`❌ فشل تسجيل الدخول: ${loginErr.message || JSON.stringify(loginErr)}`);
       botStatus = "OFFLINE";
@@ -174,7 +162,7 @@ function startBotEngine() {
       const intervalId = setInterval(() => {
         const config = getWoxConfig();
         if (!config.enabled || botStatus !== "ONLINE") return;
-        sendMessageWithTyping(api, config.text, threadID, 2000);
+        sendMessageDirect(api, config.text, threadID);
       }, getWoxConfig().interval);
 
       activeWoxThreads.set(threadID, intervalId);
@@ -199,50 +187,62 @@ function startBotEngine() {
     // استعادة المحادثات النشطة السابقة
     savedThreads.forEach((tId) => startWoxLoop(tId));
 
-    // الاستماع للأحداث والرسائل
+    // الاستماع للأحداث والرسائل مع معالجة سريعة بدون توقف
     api.listenMqtt(async (err, event) => {
       try {
-        if (err || !event || !event.threadID) return;
+        if (err || !event) return;
 
         if (event.type === "event" && event.logMessageType === "log:unsubscribe") {
-          await sendMessageWithTyping(api, "غادر المهرج المجموعة", event.threadID, 1500);
+          await sendMessageDirect(api, "غادر المهرج المجموعة", event.threadID);
           return;
         }
 
         if (event.type === "message" || event.type === "message_reply") {
-          if (!event.body || typeof event.body !== "string") return;
-
-          const body = event.body.trim();
+          const body = String(event.body || "").trim();
           const senderID = String(event.senderID || "");
-          const threadID = String(event.threadID);
+          const threadID = String(event.threadID || "");
           const isAdmin = senderID === adminID;
+
+          if (!body) return;
 
           addLog(`📩 [رسالة] من ${senderID} في ${threadID}: ${body}`);
 
-          if (body === "! الوكس قل لهم الصراحة" && isAdmin) {
-            stopWoxLoop(threadID);
-            await sendMessageWithTyping(api, "🔥🔷𝐓𝐇𝐄 𝐊𝐈𝐍𝐆 𝐀𝐋𝐎𝐗 𝐈𝐒 𝐇𝐄𝐑𝐄 🌪❌", threadID, 2500);
-            startWoxLoop(threadID);
-          }
-          else if ((body === "! الوكس ايقاف" || body === "!الوكس ايقاف" || body === "/الوكس ايقاف") && isAdmin) {
-            if (activeWoxThreads.has(threadID)) {
+          // 1. أمر التشغيل المطلوب: /الوكس تشغيل
+          if (body === "/الوكس تشغيل" || body === "! الوكس قل لهم الصراحة") {
+            if (isAdmin) {
               stopWoxLoop(threadID);
-              await sendMessageWithTyping(api, "𝙏𝙃𝙀 𝘼𝙇𝙊𝙓 𝙈𝙊𝘿𝙀 𝙄𝙎 𝙎𝙏𝙊𝙋𝙋𝙀𝘿 ❌", threadID, 2000);
-            } else {
-              await sendMessageWithTyping(api, "متت اختفو 😂", threadID, 1500);
+              await sendMessageDirect(api, "🔥🔷𝐓𝐇𝐄 𝐊𝐈𝐍𝐆 𝐀𝐋𝐎𝐗 𝐈𝐒 𝐇𝐄𝐑𝐄 🌪❌", threadID);
+              startWoxLoop(threadID);
             }
           }
+          // 2. أمر الإيقاف المطلوب: /stop
+          else if (body === "/stop" || body === "! الوكس ايقاف") {
+            if (isAdmin) {
+              if (activeWoxThreads.has(threadID)) {
+                stopWoxLoop(threadID);
+                await sendMessageDirect(api, "𝙏𝙃𝙀 𝘼𝙇𝙊𝙓 𝙈𝙊𝘿𝙀 𝙄𝙎 𝙎𝙏𝙊𝙋𝙋𝙀𝘿 ❌", threadID);
+              } else {
+                await sendMessageDirect(api, "الوكس غير متفاعل في هذه المجموعة أصلاً.", threadID);
+              }
+            }
+          }
+          // 3. أمر مدة التشغيل المطلوب: /up
+          else if (body === "/up" || body === "/uptime") {
+            const uptimeText = `⚙️ **مدة تشغيل البوت المستمرة:**\n⏱️ ${getUptime()}`;
+            await sendMessageDirect(api, uptimeText, threadID);
+          }
+          // الأوامر الفرعية السابقة
           else if (body === "!ألوكس" || body === "! ألوكس") {
             if (isAdmin) {
-              const replyText = `👑𝐀𝐥𝐨𝐱'𝐬 𝐵𝑂َ𝑇 𝐢𝐬 𝐨𝐧👑\nꪱׁׁׁׅׅׅܻ⨍ ɑׁׅ݊ꪀᨮׁׅ֮ᨵׁׅׅ݊ꪀꫀׁׅܻ݊ ժׁׅ݊ɑׁׅꭈׁׅꫀׁׅܻׅ݊꯱ tׁׅᨵׁׅׅ hׁׅ֮ɑׁׅᥣׁׅ֪ᥣׁׅ֪ꫀׁׅܻ݊݊ꪀᧁׁꫀׁׅܻ݊ hׁׅ֮ꪱׁׁׁׅׅׅꩇׁׅ֪݊ , hׁׁׅׅ֮֮ꫀׁׅܻ݊'꯱ ᧁׁᨵׁׅׅ݊ꪀ݊ꪀɑׁׅ υׁׅׅ꯱ꫀׁׅܻ݊ :\nٱﺂݪو໑ڪَِكٍْسہًٍۦـس قݪ ݪهَـْہ‌‍َِٰمَِـۥـِمٛ ٱﺂݪصࢪٱﺂحٍَـحهَـْہ‌‍َِٰ!\n🔵𝗬𝗼𝘂 𝘄𝗮𝗻𝘁 𝘁𝗼 𝘀𝘁𝗮𝗿𝘁?`;
-              await sendMessageWithTyping(api, replyText, threadID, 2500);
+              const replyText = `👑𝐀𝐥𝐨𝐱'𝐬 𝐵𝑂َ𝑇 𝐢𝐬 𝐨𝐧👑\n🔵𝗬𝗼𝘂 𝘄𝗮𝗻𝘁 𝘁𝗼 𝘀𝘁𝗮𝗿𝘁?`;
+              await sendMessageDirect(api, replyText, threadID);
             }
           }
           else if (body === "! الوكس" || body === "!الوكس") {
             if (isAdmin) {
-              await sendMessageWithTyping(api, "انا هنا !", threadID, 1500);
+              await sendMessageDirect(api, "انا هنا !", threadID);
             } else {
-              await sendMessageWithTyping(api, "ڪ│😂⇦𖤛🧞‍♂️┋ـسـ╾༺☄️༻╿ـمـ︻︽『🐉🈴』𒆙𒋨🔥🦅𒁂فـڪ", threadID, 2000);
+              await sendMessageDirect(api, "ڪ│😂⇦𖤛🧞‍♂️┋ـسـفـڪ", threadID);
             }
           }
         }
