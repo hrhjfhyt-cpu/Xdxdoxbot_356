@@ -5,132 +5,426 @@ const fs = require("fs");
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-// 1. تشغيل خادم الويب فوراً لضمان عدم ظهور خطأ الاستضافة
+// ===============================
+// إعدادات البوت
+// ===============================
+
+const ADMIN_ID = "61593590627474";
+
+let api = null;
+let woxInterval = null;
+let reconnectTimer = null;
+let isStarting = false;
+
+// ===============================
+// Web Server
+// ===============================
+
 app.get("/", (req, res) => {
-  res.send("Alox Bot Server is Running Online 🟢");
+  res.status(200).send("Alox Bot Server is Running Online 🟢");
+});
+
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    online: true,
+    botLoggedIn: !!api,
+    woxRunning: !!woxInterval
+  });
 });
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`✅ Web server listening on port ${PORT}`);
 });
 
-// 2. حماية العملية من السقوط نهائياً عند حدوث أي خطأ
+// ===============================
+// منع سقوط السيرفر
+// ===============================
+
 process.on("uncaughtException", (err) => {
-  console.error("⚠️ Uncaught Exception:", err.message || err);
+  console.error(
+    "⚠️ Uncaught Exception:",
+    err && (err.stack || err.message || err)
+  );
 });
 
 process.on("unhandledRejection", (reason) => {
   console.error("⚠️ Unhandled Rejection:", reason);
 });
 
-// 3. تشغيل البوت داخل نطاق محمي
-const adminID = "61581499031089";
-let woxInterval = null;
+// ===============================
+// إرسال آمن
+// ===============================
+
+function safeSend(text, threadID) {
+  if (!api) {
+    console.error("❌ لا يمكن الإرسال: البوت غير متصل");
+    return;
+  }
+
+  if (!threadID) {
+    console.error("❌ لا يوجد threadID للإرسال");
+    return;
+  }
+
+  try {
+    api.sendMessage(String(text), String(threadID), (err) => {
+      if (err) {
+        console.error(
+          "❌ خطأ في الإرسال:",
+          err && (err.message || err)
+        );
+        return;
+      }
+
+      console.log(`📤 تم الإرسال إلى ${threadID}`);
+    });
+  } catch (err) {
+    console.error(
+      "❌ Exception أثناء الإرسال:",
+      err && (err.message || err)
+    );
+  }
+}
+
+// ===============================
+// إيقاف الوكس
+// ===============================
+
+function stopWox() {
+  if (woxInterval) {
+    clearInterval(woxInterval);
+    woxInterval = null;
+    console.log("🛑 Wox interval stopped");
+  }
+}
+
+// ===============================
+// تشغيل البوت
+// ===============================
 
 function startBot() {
+  if (isStarting) {
+    console.log("⏳ البوت يحاول الاتصال بالفعل...");
+    return;
+  }
+
+  isStarting = true;
+
+  // --------------------------------
+  // التحقق من appstate
+  // --------------------------------
+
   if (!fs.existsSync("./appstate.json")) {
-    console.error("❌ ملف appstate.json غير موجود!");
+    console.error("❌ appstate.json غير موجود!");
+    isStarting = false;
     return;
   }
 
   let appStateData;
+
   try {
-    appStateData = JSON.parse(fs.readFileSync("./appstate.json", "utf8"));
-  } catch (e) {
-    console.error("❌ خطأ في قراءة ملف appstate.json:", e.message);
+    const raw = fs.readFileSync("./appstate.json", "utf8");
+
+    if (!raw.trim()) {
+      throw new Error("appstate.json فارغ");
+    }
+
+    appStateData = JSON.parse(raw);
+
+    if (!Array.isArray(appStateData)) {
+      throw new Error("appstate.json يجب أن يكون Array");
+    }
+
+  } catch (err) {
+    console.error(
+      "❌ خطأ في appstate.json:",
+      err.message || err
+    );
+
+    isStarting = false;
     return;
   }
 
-  login({ appState: appStateData }, (err, api) => {
-    if (err) {
-      console.error("❌ فشل تسجيل الدخول:", err.errorDescription || err.message || err);
-      return;
-    }
+  console.log("🔄 جاري تسجيل دخول البوت...");
 
-    console.log("✅ Bot logged in successfully!");
+  // --------------------------------
+  // Login
+  // --------------------------------
 
-    try {
-      api.setOptions({
-        listenEvents: true,
-        selfListen: true,
-        autoMarkDelivery: true,
-        autoMarkRead: true
-      });
-    } catch (e) {}
+  login(
+    {
+      appState: appStateData
+    },
+    (err, loggedApi) => {
 
-    function safeSend(text, threadID) {
-      if (!api || !threadID) return;
-      api.sendMessage(text, threadID, (sendErr) => {
-        if (sendErr) {
-          console.error(`❌ خطأ في الإرسال إلى (${threadID}):`, sendErr.message || sendErr);
-        } else {
-          console.log(`📤 تم الإرسال بنجاح إلى (${threadID})`);
-        }
-      });
-    }
+      isStarting = false;
 
-    api.listenMqtt((mqttErr, event) => {
-      try {
-        if (mqttErr) return;
-        if (!event || !event.threadID || !event.senderID) return;
+      if (err) {
+        api = null;
 
-        // مغادرة المجموعة
-        if (event.type === "event" && event.logMessageType === "log:unsubscribe") {
-          return safeSend("غادر المهرج المجموعة", event.threadID);
-        }
+        console.error(
+          "❌ فشل تسجيل الدخول:",
+          err.errorDescription ||
+          err.message ||
+          err
+        );
 
-        // الرسائل النصية
-        if (event.type === "message" || event.type === "message_reply") {
-          if (!event.body || typeof event.body !== "string") return;
-
-          const body = event.body.trim();
-          const sender = String(event.senderID).trim();
-          const thread = String(event.threadID).trim();
-
-          // تشغيل الوكس
-          if (
-            (body === "! الوكس قل لهم الصراحة" || body === "!الوكس قل لهم الصراحة" || body === "/up" || body === "up") &&
-            sender === adminID
-          ) {
-            if (woxInterval) clearInterval(woxInterval);
-
-            safeSend("🔥🔷𝐓𝐇𝐄 𝐊𝐈𝐍𝐆 𝐀𝐋𝐎𝐗 𝐈𝐒 𝐇𝐄𝐑𝐄 🌪❌", thread);
-
-            const woxText = `𝐊𝐃⃢⏤͟͟͞͞︴💦︴𝐁𝐑⃢⏤͟͟͞͞︴💦︴ 𝐎𝐊⃢⏤͟͟͞͞︴💦︴ 𝐊𝐎⃢⏤͟͟͞͞︴💦︴ 𝐑𝐀⃢⏤͟͟͞͞︴💦︴ 𝐃𝐃⃢⏤͟͟͞͞︴💦︴ 𝐑𝐎⃢⏤͟͟͞͞︴💦︴ 𝐓𝐀⃢⏤͟͟͞͞︴💦︴ 𝐒𝐇⃢⏤͟͟͞͞︴💦︴ 𝐋𝐃⃢⏤͟͟͞͞︴💦︴\n\n𝑵⃟𝑮⏤͟͟͞͞┆🎴 ︴𝑯𝑲⃟⏤͟͟͞͞┆ 🎴︴ 𝑶𝑬⃟⏤͟͟͞͞┆ 🎴︴𝑹𝑻⃟⏤͟͟͞͞┆🎴 ︴ 𝑩𝑫⃟⏤͟͟͞͞┆🎴 ︴ 𝑫𝑳⃟⏤͟͟͞͞┆ 🎴︴ 𝑫𝑲⃟⏤͟͟͞͞┆🎴 ︴ 𝒁𝑴⃟⏤͟͟͞͞┆🎴 ︴\n\n𝗠𝗔𝗬𝗕𝗘 𝗬𝗢𝗨'𝗟𝗟 𝗦𝗛𝗢𝗪 𝗦𝗢𝗠𝗘 𝗥𝗘𝗦𝗣𝗘𝗖𝗧 𝗧𝗢 𝗨𝗥 𝗟𝗘𝗔𝗗𝗘𝗥 ࿐ 𝕬𝕷𝕆𝑿 ⸔🔷`;
-
-            woxInterval = setInterval(() => {
-              safeSend(woxText, thread);
-            }, 25000);
-          }
-
-          // إيقاف الوكس
-          if (
-            (body === "! الوكس ايقاف" || body === "!الوكس ايقاف" || body === "/stop" || body === "stop") &&
-            sender === adminID
-          ) {
-            if (woxInterval) {
-              clearInterval(woxInterval);
-              woxInterval = null;
-              safeSend("𝙏𝙃𝙀 𝘼𝙇𝙊𝙓 𝙈𝙊𝘿𝙀 𝙄𝙎 𝙎𝙏𝙊𝙋𝙋𝙀𝘿 ❌", thread);
-            } else {
-              safeSend("متت اختفو 😂", thread);
-            }
-          }
-
-          // التحقق
-          if (body === "! الوكس" || body === "!الوكس") {
-            if (sender === adminID) {
-              return safeSend("انا هنا ! ", thread);
-            }
-            safeSend("ڪ│😂⇦𖤛🧞‍♂️┋ـسـ╾༺☄️༻╿ـمـ︻︽『🐉🈴』𒆙𒋨🔥🦅𒁂𒁎ـڪ ", thread);
-          }
-        }
-      } catch (e) {
-        console.error("❌ Error in listener:", e.message);
+        scheduleReconnect();
+        return;
       }
-    });
-  });
+
+      api = loggedApi;
+
+      console.log("✅ Bot logged in successfully!");
+      console.log(`👑 Admin ID: ${ADMIN_ID}`);
+
+      // --------------------------------
+      // Options
+      // --------------------------------
+
+      try {
+        api.setOptions({
+          listenEvents: true,
+          selfListen: true,
+          autoMarkDelivery: true,
+          autoMarkRead: true
+        });
+
+        console.log("✅ API options configured");
+      } catch (err) {
+        console.error(
+          "⚠️ setOptions error:",
+          err.message || err
+        );
+      }
+
+      // --------------------------------
+      // Listener
+      // --------------------------------
+
+      try {
+        api.listenMqtt((mqttErr, event) => {
+
+          if (mqttErr) {
+            console.error(
+              "⚠️ MQTT error:",
+              mqttErr.message || mqttErr
+            );
+
+            api = null;
+            stopWox();
+            scheduleReconnect();
+
+            return;
+          }
+
+          try {
+
+            if (!event) {
+              return;
+            }
+
+            if (!event.threadID) {
+              return;
+            }
+
+            if (!event.senderID) {
+              return;
+            }
+
+            const thread = String(event.threadID).trim();
+            const sender = String(event.senderID).trim();
+
+            // ==========================================
+            // مغادرة المجموعة
+            // ==========================================
+
+            if (
+              event.type === "event" &&
+              event.logMessageType === "log:unsubscribe"
+            ) {
+              safeSend(
+                "غادر المهرج المجموعة",
+                thread
+              );
+
+              return;
+            }
+
+            // ==========================================
+            // الرسائل
+            // ==========================================
+
+            if (
+              event.type !== "message" &&
+              event.type !== "message_reply"
+            ) {
+              return;
+            }
+
+            if (
+              typeof event.body !== "string"
+            ) {
+              return;
+            }
+
+            const body = event.body.trim();
+
+            console.log(
+              `📩 Message | sender=${sender} | thread=${thread} | body=${body}`
+            );
+
+            // ==========================================
+            // تشغيل الوكس
+            // ==========================================
+
+            if (
+              (
+                body === "! الوكس قل لهم الصراحة" ||
+                body === "!الوكس قل لهم الصراحة" ||
+                body === "/up" ||
+                body === "up"
+              ) &&
+              sender === ADMIN_ID
+            ) {
+
+              stopWox();
+
+              safeSend(
+                "🔥🔷𝐓𝐇𝐄 𝐊𝐈𝐍𝐆 𝐀𝐋𝐎𝐗 𝐈𝐒 𝐇𝐄𝐑𝐄 🌪❌",
+                thread
+              );
+
+              const woxText =
+`𝐊𝐃⃢⏤͟͟͞͞︴💦︴𝐁𝐑⃢⏤͟͟͞͞︴💦︴ 𝐎𝐊⃢⏤͟͟͞͞︴💦︴ 𝐊𝐎⃢⏤͟͟͞͞︴💦︴ 𝐑𝐀⃢⏤͟͟͞͞︴💦︴ 𝐃𝐃⃢⏤͟͟͞͞︴💦︴ 𝐑𝐎⃢⏤͟͟͞͞︴💦︴ 𝐓𝐀⃢⏤͟͟͞͞︴💦︴ 𝐒𝐇⃢⏤͟͟͞͞︴💦︴ 𝐋𝐃⃢⏤͟͟͞͞︴💦︴
+
+𝑵⃟𝑮⏤͟͟͞͞┆🎴 ︴𝑯𝑲⃟⏤͟͟͞͞┆ 🎴︴ 𝑶𝑬⃟⏤͟͟͞͞┆ 🎴︴𝑹𝑻⃟⏤͟͟͞͞┆🎴 ︴ 𝑩𝑫⃟⏤͟͟͞͞┆🎴 ︴ 𝑫𝑳⃟⏤͟͟͞͞┆ 🎴︴ 𝑫𝑲⃟⏤͟͟͞͞┆🎴 ︴ 𝒁𝑴⃟⏤͟͟͞͞┆🎴 ︴
+
+𝗠𝗔𝗬𝗕𝗘 𝗬𝗢𝗨'𝗟𝗟 𝗦𝗛𝗢𝗪 𝗦𝗢𝗠𝗘 𝗥𝗘𝗦𝗣𝗘𝗖𝗧 𝗧𝗢 𝗨𝗥 𝗟𝗘𝗔𝗗𝗘𝗥 ࿐ 𝕬𝕷𝕆𝑿 ⸔🔷`;
+
+              woxInterval = setInterval(() => {
+                safeSend(woxText, thread);
+              }, 25000);
+
+              console.log("🔥 Wox started");
+
+              return;
+            }
+
+            // ==========================================
+            // إيقاف الوكس
+            // ==========================================
+
+            if (
+              (
+                body === "! الوكس ايقاف" ||
+                body === "!الوكس ايقاف" ||
+                body === "/stop" ||
+                body === "stop"
+              ) &&
+              sender === ADMIN_ID
+            ) {
+
+              if (woxInterval) {
+
+                stopWox();
+
+                safeSend(
+                  "𝙏𝙃𝙀 𝘼𝙇𝙊𝙓 𝙈𝙊𝘿𝙀 𝙄𝙎 𝙎𝙏𝙊𝙋𝙋𝙀𝘿 ❌",
+                  thread
+                );
+
+              } else {
+
+                safeSend(
+                  "متت اختفو 😂",
+                  thread
+                );
+
+              }
+
+              return;
+            }
+
+            // ==========================================
+            // التحقق
+            // ==========================================
+
+            if (
+              body === "! الوكس" ||
+              body === "!الوكس"
+            ) {
+
+              if (sender === ADMIN_ID) {
+
+                safeSend(
+                  "انا هنا !",
+                  thread
+                );
+
+              } else {
+
+                safeSend(
+                  "ڪ│😂⇦𖤛🧞‍♂️┋ـسـ╾༺☄️༻╿ـمـ︻︽『🐉🈴』𒆙𒋨🔥🦅𒁂𒁎ـڪ",
+                  thread
+                );
+
+              }
+
+              return;
+            }
+
+          } catch (err) {
+
+            console.error(
+              "❌ Listener error:",
+              err && (err.stack || err.message || err)
+            );
+
+          }
+
+        });
+
+        console.log("👂 MQTT listener started");
+
+      } catch (err) {
+
+        console.error(
+          "❌ Failed to start MQTT listener:",
+          err.message || err
+        );
+
+        api = null;
+        stopWox();
+        scheduleReconnect();
+      }
+    }
+  );
 }
 
-startBot();
+// ===============================
+// إعادة الاتصال
+// ===============================
 
+function scheduleReconnect() {
+
+  if (reconnectTimer) {
+    return;
+  }
+
+  console.log("🔄 سيتم إعادة محاولة الاتصال بعد 10 ثواني...");
+
+  reconnectTimer = setTimeout(() => {
+
+    reconnectTimer = null;
+
+    startBot();
+
+  }, 10000);
+}
+
+// ===============================
+// تشغيل أولي
+// ===============================
+
+startBot();
