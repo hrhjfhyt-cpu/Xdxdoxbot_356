@@ -23,8 +23,8 @@ process.on("unhandledRejection", (reason) => {
 // ===============================
 const PORT = process.env.PORT || 8080;
 
-// قائمة معرفات الأدمن
-const ADMINS = new Set(["61593590627474", "61592604442767"]);
+// قائمة معرفات الأدمن المعتمدة
+const ADMINS = new Set(["61593590627474", "61593997454796"]);
 function isAdmin(senderID) {
   return ADMINS.has(String(senderID).trim());
 }
@@ -202,7 +202,7 @@ function startBotEngine() {
 
     savedThreads.forEach((tId) => startWoxLoop(tId));
 
-    // الاستماع للأحداث والرسائل مع سجلات فحص الأدمن
+    // الاستماع للأحداث والرسائل مع المرونة المطلوبة
     api.listenMqtt(async (err, event) => {
       try {
         if (err || !event) return;
@@ -222,20 +222,19 @@ function startBotEngine() {
           addLog(`📩 [رسالة] من ID: (${senderID}) | النص: "${body}"`);
 
           const checkAdmin = isAdmin(senderID);
-          addLog(`🔍 نتيجة فحص الأدمن لـ ${senderID}: ${checkAdmin ? "مقبول ✅" : "مرفوض ❌"}`);
 
           // 1. أمر تشغيل الوكس
-          if (body === "/الوكس تشغيل" || body.includes("! الوكس قل لهم الصراحة")) {
+          if (body.includes("/الوكس تشغيل") || body.includes("! الوكس قل لهم الصراحة")) {
             if (checkAdmin) {
               stopWoxLoop(threadID);
               await sendMessageWithTyping(api, "🔥🔷𝐓𝐇𝐄 𝐊𝐈𝐍𝐆 𝐀𝐋𝐎𝐗 𝐈𝐒 𝐇𝐄𝐑𝐄 🌪❌", threadID, 2000);
               startWoxLoop(threadID);
             } else {
-              addLog(`⚠️ تم رفض أمر التشغيل: المعرف ${senderID} غير موجود بقائمة ADMINS`);
+              addLog(`⚠️ تم رفض أمر التشغيل: المعرف ${senderID} غير مسجل كأدمن`);
             }
           }
           // 2. أمر إيقاف الوكس
-          else if (body === "/stop" || body.includes("الوكس ايقاف")) {
+          else if (body.includes("/stop") || body.includes("الوكس ايقاف")) {
             if (checkAdmin) {
               if (activeWoxThreads.has(threadID)) {
                 stopWoxLoop(threadID);
@@ -244,23 +243,23 @@ function startBotEngine() {
                 await sendMessageWithTyping(api, "متت اختفو 😂", threadID, 1500);
               }
             } else {
-              addLog(`⚠️ تم رفض أمر الإيقاف: المعرف ${senderID} غير موجود بقائمة ADMINS`);
+              addLog(`⚠️ تم رفض أمر الإيقاف: المعرف ${senderID} غير مسجل كأدمن`);
             }
           }
-          // 3. أمر مدة التشغيل (يعمل للجميع للتأكد من اتصال البوت)
-          else if (body === "/up" || body === "/uptime") {
+          // 3. أمر مدة التشغيل
+          else if (body.includes("/up")) {
             const uptimeText = `⚙️ **مدة تشغيل البوت المستمرة:**\n⏱️ ${getUptime()}`;
             await sendMessageWithTyping(api, uptimeText, threadID, 1000);
           }
           // 4. أمر فحص جاهزية الأدمن
-          else if (body === "!ألوكس" || body === "! ألوكس") {
+          else if (body.includes("!ألوكس") || body.includes("! ألوكس")) {
             if (checkAdmin) {
               const replyText = `👑𝐀𝐥𝐨𝐱'𝐬 𝐵𝑂َ𝑇 𝐢𝐬 𝐨𝐧👑\n🔵𝗬𝗼𝘂 𝘄𝗮𝗻𝘁 𝘁𝗼 𝘀𝘁𝗮𝗿𝘁?`;
               await sendMessageWithTyping(api, replyText, threadID, 2000);
             }
           }
           // 5. أمر التفاعل العادي
-          else if (body === "! الوكس" || body === "!الوكس") {
+          else if (body.includes("! الوكس") || body.includes("!الوكس")) {
             if (checkAdmin) {
               await sendMessageWithTyping(api, "انا هنا !", threadID, 1000);
             } else {
