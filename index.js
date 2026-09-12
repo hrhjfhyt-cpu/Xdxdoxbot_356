@@ -2,44 +2,29 @@ const { login } = require("ws3-fca");
 const fs = require("fs");
 
 // ===============================
-// Login / AppState
+// Login / AppState Parsing
 // ===============================
 
-function loadAppStateRaw() {
+function loadAppState() {
   try {
     const raw = fs.readFileSync("./appstate.json", "utf8");
-    const cookies = JSON.parse(raw);
+    const parsed = JSON.parse(raw);
 
-    if (!Array.isArray(cookies)) {
-      throw new Error("appstate.json must contain a JSON array.");
+    let appStateArray = [];
+
+    // التحقق والتأكد من تحويل البيانات إلى مصفوفة صالحة لمكتبة ws3-fca
+    if (Array.isArray(parsed)) {
+      appStateArray = parsed;
+    } else if (parsed && typeof parsed === "object" && Array.isArray(parsed.appState)) {
+      appStateArray = parsed.appState;
+    } else {
+      throw new Error("ملف appstate.json لا يحتوي على مصفوفة JSON صالحة.");
     }
 
-    const cookieString = cookies
-      .filter(cookie =>
-        cookie &&
-        typeof cookie === "object" &&
-        cookie.value !== undefined
-      )
-      .map(cookie => {
-        const key = cookie.key || cookie.name;
-
-        if (!key) {
-          return null;
-        }
-
-        return `${String(key)}=${String(cookie.value)}`;
-      })
-      .filter(Boolean)
-      .join("; ");
-
-    if (!cookieString) {
-      throw new Error("No valid cookies found in appstate.json.");
-    }
-
-    console.log(`🍪 Loaded ${cookies.length} cookies.`);
-
-    // ws3-fca 2.0.1 تحتاج appState كنص حتى تستخدم split()
-    return cookieString;
+    console.log(`🍪 Loaded ${appStateArray.length} cookies.`);
+    
+    // إرجاع المصفوفة مباشرة دون تحويلها إلى النص 'key=value;'
+    return appStateArray;
 
   } catch (e) {
     console.error("❌ Failed to load appstate.json:", e.message);
@@ -47,13 +32,13 @@ function loadAppStateRaw() {
   }
 }
 
-// appState الآن String وليس Array
+// إرسال appState كمصفوفة كوكيز رسمية
 const loginOptions = {
-  appState: loadAppStateRaw()
+  appState: loadAppState()
 };
 
 // ===============================
-// Wox state
+// Wox state & Config
 // ===============================
 
 const woxStateFile = "./wox_state.json";
@@ -63,10 +48,7 @@ let savedWoxThreads = [];
 
 try {
   if (fs.existsSync(woxStateFile)) {
-    const savedData = JSON.parse(
-      fs.readFileSync(woxStateFile, "utf8")
-    );
-
+    const savedData = JSON.parse(fs.readFileSync(woxStateFile, "utf8"));
     if (Array.isArray(savedData)) {
       savedWoxThreads = savedData;
     }
@@ -74,10 +56,6 @@ try {
 } catch (e) {
   savedWoxThreads = [];
 }
-
-// ===============================
-// Default Wox configuration
-// ===============================
 
 const DEFAULT_WOX_TEXT = `*𝐀𝐥𝐨𝐱'𝐬 𝐫𝐞𝐩𝐥𝐲 🫸🔵🫷*
 𖣫 ᗩᒪᒪ ᗪᗴᗰOᑎՏ𖣫
@@ -117,54 +95,26 @@ function loadWoxConfig() {
 
   try {
     if (!fs.existsSync(woxConfigFile)) {
-      fs.writeFileSync(
-        woxConfigFile,
-        JSON.stringify(defaultConfig, null, 2),
-        "utf8"
-      );
-
+      fs.writeFileSync(woxConfigFile, JSON.stringify(defaultConfig, null, 2), "utf8");
       return defaultConfig;
     }
 
-    const savedConfig = JSON.parse(
-      fs.readFileSync(woxConfigFile, "utf8")
-    );
+    const savedConfig = JSON.parse(fs.readFileSync(woxConfigFile, "utf8"));
 
     return {
-      enabled:
-        typeof savedConfig.enabled === "boolean"
-          ? savedConfig.enabled
-          : true,
-
-      interval:
-        Number(savedConfig.interval) >= 1000
-          ? Number(savedConfig.interval)
-          : 15000,
-
-      text:
-        typeof savedConfig.text === "string" &&
-        savedConfig.text.length > 0
-          ? savedConfig.text
-          : DEFAULT_WOX_TEXT
+      enabled: typeof savedConfig.enabled === "boolean" ? savedConfig.enabled : true,
+      interval: Number(savedConfig.interval) >= 1000 ? Number(savedConfig.interval) : 15000,
+      text: typeof savedConfig.text === "string" && savedConfig.text.length > 0 ? savedConfig.text : DEFAULT_WOX_TEXT
     };
-
   } catch (e) {
     console.error("❌ Wox config error:", e.message);
     return defaultConfig;
   }
 }
 
-// ===============================
-// Save Wox state
-// ===============================
-
 function saveWoxState() {
   try {
-    fs.writeFileSync(
-      woxStateFile,
-      JSON.stringify(savedWoxThreads, null, 2),
-      "utf8"
-    );
+    fs.writeFileSync(woxStateFile, JSON.stringify(savedWoxThreads, null, 2), "utf8");
   } catch (e) {
     console.error("❌ Wox state save error:", e.message);
   }
@@ -179,7 +129,6 @@ function addWoxThread(threadID) {
 
 function removeWoxThread(threadID) {
   const index = savedWoxThreads.indexOf(threadID);
-
   if (index !== -1) {
     savedWoxThreads.splice(index, 1);
     saveWoxState();
@@ -205,7 +154,6 @@ login(loginOptions, (err, api) => {
         interval: 3 * 60 * 1000,
         debounce: 30 * 1000
       });
-
       console.log("🔄 SessionGuard is active.");
     }
   } catch (e) {
@@ -228,76 +176,39 @@ login(loginOptions, (err, api) => {
   let isOnline = true;
 
   function schedulePresenceCycle() {
-    const activeDuration =
-      Math.floor(
-        Math.random() * (7200000 - 3600000 + 1)
-      ) + 3600000;
+    const activeDuration = Math.floor(Math.random() * (7200000 - 3600000 + 1)) + 3600000;
 
     setTimeout(() => {
       isOnline = false;
-
-      api.setOptions({
-        online: false
-      });
-
-      console.log(
-        "🌙 Bot is now offline/inactive for 15 minutes."
-      );
+      api.setOptions({ online: false });
+      console.log("🌙 Bot is now offline/inactive for 15 minutes.");
 
       setTimeout(() => {
         isOnline = true;
-
-        api.setOptions({
-          online: true
-        });
-
+        api.setOptions({ online: true });
         console.log("☀️ Bot is back online.");
-
         schedulePresenceCycle();
-
       }, 900000);
-
     }, activeDuration);
   }
 
-  api.setOptions({
-    online: true
-  });
-
+  api.setOptions({ online: true });
   schedulePresenceCycle();
 
   // ===============================
   // Send with typing
   // ===============================
 
-  async function sendMessageWithTyping(
-    text,
-    threadID,
-    delayMs = 1500
-  ) {
+  async function sendMessageWithTyping(text, threadID, delayMs = 1500) {
     try {
-      if (
-        typeof api.sendTypingIndicator === "function"
-      ) {
-        api.sendTypingIndicator(
-          threadID,
-          () => {}
-        );
+      if (typeof api.sendTypingIndicator === "function") {
+        api.sendTypingIndicator(threadID, () => {});
       }
 
-      await new Promise(resolve =>
-        setTimeout(resolve, delayMs)
-      );
-
-      return await api.sendMessage(
-        text,
-        threadID
-      );
-
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+      return await api.sendMessage(text, threadID);
     } catch (e) {
-      return await api
-        .sendMessage(text, threadID)
-        .catch(() => {});
+      return await api.sendMessage(text, threadID).catch(() => {});
     }
   }
 
@@ -306,86 +217,44 @@ login(loginOptions, (err, api) => {
   // ===============================
 
   const woxIntervals = new Map();
-
-  const adminID = "61594108102958";
-
-  // ===============================
-  // Start Wox
-  // ===============================
+  const adminID = "61593590627474";
 
   function startWox(threadID, announce = false) {
-    if (woxIntervals.has(threadID)) {
-      return;
-    }
+    if (woxIntervals.has(threadID)) return;
 
     const config = loadWoxConfig();
 
-    const newInterval = setInterval(
-      async () => {
-        const currentConfig =
-          loadWoxConfig();
+    const newInterval = setInterval(async () => {
+      const currentConfig = loadWoxConfig();
+      if (!currentConfig.enabled) return;
 
-        if (!currentConfig.enabled) {
-          return;
-        }
+      try {
+        await api.sendMessage(currentConfig.text, threadID);
+      } catch (e) {
+        // تجاهل أخطاء الإرسال
+      }
+    }, config.interval);
 
-        try {
-          await api.sendMessage(
-            currentConfig.text,
-            threadID
-          );
-        } catch (e) {
-          // تجاهل أخطاء الإرسال
-        }
-
-      },
-      config.interval
-    );
-
-    woxIntervals.set(
-      threadID,
-      newInterval
-    );
-
+    woxIntervals.set(threadID, newInterval);
     addWoxThread(threadID);
 
     if (announce) {
-      sendMessageWithTyping(
-        "🔥🔷𝐓𝐇𝐄 𝐊𝐈𝐍𝐆 𝐀𝐋𝐎𝐗 𝐈𝐒 𝐇𝐄𝐑𝐄 🌪❌",
-        threadID
-      );
+      sendMessageWithTyping("🔥🔷𝐓𝐇𝐄 𝐊𝐈𝐍𝐆 𝐀𝐋𝐎𝐗 𝐈𝐒 𝐇𝐄𝐑𝐄 🌪❌", threadID);
     }
   }
-
-  // ===============================
-  // Stop Wox
-  // ===============================
 
   function stopWox(threadID) {
     if (woxIntervals.has(threadID)) {
-      clearInterval(
-        woxIntervals.get(threadID)
-      );
-
+      clearInterval(woxIntervals.get(threadID));
       woxIntervals.delete(threadID);
     }
-
     removeWoxThread(threadID);
   }
 
-  // ===============================
-  // Restart Wox intervals
-  // ===============================
-
   function restartAllWoxIntervals() {
-    const activeThreads =
-      Array.from(woxIntervals.keys());
-
+    const activeThreads = Array.from(woxIntervals.keys());
     for (const threadID of activeThreads) {
-      clearInterval(
-        woxIntervals.get(threadID)
-      );
-
+      clearInterval(woxIntervals.get(threadID));
       woxIntervals.delete(threadID);
     }
 
@@ -393,9 +262,7 @@ login(loginOptions, (err, api) => {
       startWox(threadID, false);
     }
 
-    console.log(
-      "🔄 Wox intervals reloaded from configuration."
-    );
+    console.log("🔄 Wox intervals reloaded from configuration.");
   }
 
   // ===============================
@@ -405,47 +272,21 @@ login(loginOptions, (err, api) => {
   let lastWoxConfig = "";
 
   try {
-    lastWoxConfig =
-      fs.existsSync(woxConfigFile)
-        ? fs.readFileSync(
-            woxConfigFile,
-            "utf8"
-          )
-        : "";
+    lastWoxConfig = fs.existsSync(woxConfigFile) ? fs.readFileSync(woxConfigFile, "utf8") : "";
 
-    fs.watchFile(
-      woxConfigFile,
-      {
-        interval: 1000
-      },
-      () => {
-        try {
-          const newConfig =
-            fs.readFileSync(
-              woxConfigFile,
-              "utf8"
-            );
-
-          if (newConfig !== lastWoxConfig) {
-            lastWoxConfig = newConfig;
-
-            restartAllWoxIntervals();
-          }
-
-        } catch (e) {
-          console.error(
-            "❌ Wox config watch error:",
-            e.message
-          );
+    fs.watchFile(woxConfigFile, { interval: 1000 }, () => {
+      try {
+        const newConfig = fs.readFileSync(woxConfigFile, "utf8");
+        if (newConfig !== lastWoxConfig) {
+          lastWoxConfig = newConfig;
+          restartAllWoxIntervals();
         }
+      } catch (e) {
+        console.error("❌ Wox config watch error:", e.message);
       }
-    );
-
+    });
   } catch (e) {
-    console.error(
-      "❌ Failed to watch Wox config:",
-      e.message
-    );
+    console.error("❌ Failed to watch Wox config:", e.message);
   }
 
   // ===============================
@@ -453,17 +294,11 @@ login(loginOptions, (err, api) => {
   // ===============================
 
   if (savedWoxThreads.length > 0) {
-    console.log(
-      `🔄 Restoring Wox mode for ${savedWoxThreads.length} thread(s)...`
-    );
-
+    console.log(`🔄 Restoring Wox mode for ${savedWoxThreads.length} thread(s)...`);
     for (const threadID of savedWoxThreads) {
       startWox(threadID, false);
     }
-
-    console.log(
-      "✅ Previous Wox states restored."
-    );
+    console.log("✅ Previous Wox states restored.");
   }
 
   // ===============================
@@ -473,150 +308,44 @@ login(loginOptions, (err, api) => {
   api.listenMqtt(async (err, event) => {
     try {
       if (err) {
-        if (
-          err.message &&
-          err.message.includes("E2EE")
-        ) {
-          return;
-        }
-
-        return console.error(
-          "❌ Mqtt error:",
-          err
-        );
+        if (err.message && err.message.includes("E2EE")) return;
+        return console.error("❌ Mqtt error:", err);
       }
 
-      if (
-        !event ||
-        !event.threadID ||
-        !event.senderID
-      ) {
-        return;
+      if (!event || !event.threadID || !event.senderID) return;
+
+      if (event.type === "event" && event.logMessageType === "log:unsubscribe") {
+        return sendMessageWithTyping(" غادر المهرج المجموعة", event.threadID);
       }
 
-      // ===============================
-      // Group leave
-      // ===============================
+      if (event.type === "message" || event.type === "message_reply") {
+        if (!event.body || typeof event.body !== "string") return;
 
-      if (
-        event.type === "event" &&
-        event.logMessageType ===
-          "log:unsubscribe"
-      ) {
-        return sendMessageWithTyping(
-          " غادر المهرج المجموعة",
-          event.threadID
-        );
-      }
+        const body = event.body.trim();
 
-      // ===============================
-      // Messages
-      // ===============================
-
-      if (
-        event.type === "message" ||
-        event.type === "message_reply"
-      ) {
-        if (
-          !event.body ||
-          typeof event.body !== "string"
-        ) {
-          return;
-        }
-
-        const body =
-          event.body.trim();
-
-        // ===============================
-        // Wox ON
-        // ===============================
-
-        if (
-          body === "/الوكس تشغيل" &&
-          event.senderID === adminID
-        ) {
-          if (
-            woxIntervals.has(
-              event.threadID
-            )
-          ) {
-            clearInterval(
-              woxIntervals.get(
-                event.threadID
-              )
-            );
-
-            woxIntervals.delete(
-              event.threadID
-            );
+        if (body === "/الوكس تشغيل" && event.senderID === adminID) {
+          if (woxIntervals.has(event.threadID)) {
+            clearInterval(woxIntervals.get(event.threadID));
+            woxIntervals.delete(event.threadID);
           }
-
-          await sendMessageWithTyping(
-            "🔥🔷𝐓𝐇𝐄 𝐊𝐈𝐍𝐆 𝐀𝐋𝐎𝐗 𝐈𝐒 𝐇𝐄𝐑𝐄 🌪❌",
-            event.threadID
-          );
-
-          startWox(
-            event.threadID,
-            false
-          );
+          await sendMessageWithTyping("🔥🔷𝐓𝐇𝐄 𝐊𝐈𝐍𝐆 𝐀𝐋𝐎𝐗 𝐈𝐒 𝐇𝐄𝐑𝐄 🌪❌", event.threadID);
+          startWox(event.threadID, false);
         }
 
-        // ===============================
-        // Wox OFF
-        // ===============================
-
-        if (
-          body === "! الوكس ايقاف" &&
-          event.senderID === adminID
-        ) {
-          if (
-            woxIntervals.has(
-              event.threadID
-            )
-          ) {
-            clearInterval(
-              woxIntervals.get(
-                event.threadID
-              )
-            );
-
-            woxIntervals.delete(
-              event.threadID
-            );
-
-            removeWoxThread(
-              event.threadID
-            );
-
-            await sendMessageWithTyping(
-              " 𝙏𝙃𝙀 𝘼𝙇𝙊𝙓 𝙈𝙊𝘿𝙀 𝙄𝙎 𝙎𝙏𝙊𝙋𝙋𝙀𝘿 ❌",
-              event.threadID
-            );
-
+        if (body === "! الوكس ايقاف" && event.senderID === adminID) {
+          if (woxIntervals.has(event.threadID)) {
+            clearInterval(woxIntervals.get(event.threadID));
+            woxIntervals.delete(event.threadID);
+            removeWoxThread(event.threadID);
+            await sendMessageWithTyping(" 𝙏𝙃𝙀 𝘼𝙇𝙊𝙙 𝙈𝙊𝘿𝙀 𝙄𝙎 𝙎𝙏𝙊𝙋𝙋𝙀𝘿 ❌", event.threadID);
           } else {
-            removeWoxThread(
-              event.threadID
-            );
-
-            await sendMessageWithTyping(
-              " متت اختفو 😂",
-              event.threadID
-            );
+            removeWoxThread(event.threadID);
+            await sendMessageWithTyping(" متت اختفو 😂", event.threadID);
           }
         }
 
-        // ===============================
-        // Admin commands
-        // ===============================
-
-        const text =
-          event.body
-            .toLowerCase()
-            .trim();
-
-        const isAdmin =
-          event.senderID === adminID;
+        const text = event.body.toLowerCase().trim();
+        const isAdmin = event.senderID === adminID;
 
         if (isAdmin) {
           if (text === "!ألوكس") {
@@ -627,41 +356,16 @@ login(loginOptions, (err, api) => {
           }
         }
 
-        // ===============================
-        // Wox check
-        // ===============================
-
         if (body === "! الوكس") {
-          if (
-            event.senderID === adminID
-          ) {
-            return sendMessageWithTyping(
-              "انا هنا ! ",
-              event.threadID
-            );
+          if (event.senderID === adminID) {
+            return sendMessageWithTyping("انا هنا ! ", event.threadID);
           }
-
-          sendMessageWithTyping(
-            "ڪ│😂⇦𖤛🧞‍♂️┋ـسـ╾༺☄️༻╿ـمـ︻︽『🐉』𒆙𒋨🔥 🦅𒁂𒁎ـڪ ",
-            event.threadID
-          );
+          sendMessageWithTyping("ڪ│😂⇦𖤛🧞‍♂️┋ـسـ╾༺☄️༻╿ـمـ︻︽『🐉』𒆙𒋨🔥 🦅𒁂𒁎ـڪ ", event.threadID);
         }
       }
-
     } catch (e) {
-      console.error(
-        "❌ Error caught:",
-        e.message
-      );
+      console.error("❌ Error caught:", e.message);
     }
   });
 });
 
-الآن لا تغيّر صيغة "appstate.json" في الداشبورد. اتركها JSON مثلما هي، ثم احفظ الملف واعمل Redeploy.
-
-بعد التشغيل، المفروض أول سطر يكون:
-
-🍪 Loaded 14 cookies.
-ws3-fca [LOG] Logging in...
-
-وإذا لم يعد خطأ "appState?.split is not a function" وظهر خطأ جديد، فهذا يعني أننا تجاوزنا مشكلة الصيغة الأولى.
