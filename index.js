@@ -23,19 +23,19 @@ process.on("unhandledRejection", (reason) => {
 // ===============================
 const PORT = process.env.PORT || 8080;
 
-// إضافة المعرفين لضمان التعرف عليك كأدمن دائماً
-const ADMINS = new Set(["61593590627474","61593997454796",]);
+// قائمة معرفات الأدمن
+const ADMINS = new Set(["61593590627474", "61592604442767"]);
 function isAdmin(senderID) {
-  return ADMINS.has(String(senderID));
+  return ADMINS.has(String(senderID).trim());
 }
 
-const startTime = Date.now(); // حساب وقت بداية تشغيل البوت لأمر /up
+const startTime = Date.now();
 
 const appStateFile = path.join(__dirname, "appstate.json");
 const woxConfigFile = path.join(__dirname, "wox_config.json");
 const woxStateFile = path.join(__dirname, "wox_state.json");
 
-const DEFAULT_WOX_TEXT = `*𝐀𝐥𝐨𝐱'𝐬 𝐫𝐞𝐩𝐥𝐲 🫸🔵🫷*\n𖣫 ᗩᒪᒪ ᗪᗴᗰOᑎՏ𖣫\n➥𝕲𝙊𝙀𝙏𝙎  𝕺𝙁  𝕱𝘼𝘾𝘼𝘽𝙊𝙊𝙆\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𖥡┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅𖥡\n𝑡𝔥𝔢 𝔮𝔩𝔬𝔵 𝔮𝔩𝑤𝔮𝑦𝑠 𝑠𝑡𝔢𝑝𝑠 𝑜𝑛 𝑠𝑝𝑖𝑑𝑒𝑟𝑠 𝔮𝑛𝑑 𝑖𝔫𝔰𝔢𝔠𝑡𝑠 𝔩𝔦𝔨𝔢 𝔪𝔬𝑐𝑟𝔬𝑤𝔮𝑡.\n\n                           ↫🪫↬\n\n   ➥『𝐖𝐄 𝐀𝐑𝐄 𝐇𝐈𝐒𝐓𝐎𝐑𝐘』╮\n\n    ⌯        .ℙ𝕒𝕥𝕣𝕚𝕔𝕜.\n\n➥ 𝐀𝐋𝐎𝐗 🔥\n\n『༴̤☠︎︎⋆̤☯』⇣؍.َِ𝗧𝗛𝗘 𝗞𝗜𝗡𝗚⏤͟͟͞͞𝗔𝗟𝗢𝗫\n\n        ➥【𝕯𝐸𝑀ϴ𝑁𝔖】\n\n𝙇𝙀𝘼𝘿𝙀𝙍 𝙊𝙁 𝘼𝙇𝙇 𝙁𝘼𝘾𝙀𝘽𝙊𝙊𝙆 𒆙⌯𖠨𖠫𖠰𖠱𖠳\n\n⏤͟͟͞͞🫸⛩️🫷𝐀𝐒𝐓𝐑𝐎`;
+const DEFAULT_WOX_TEXT = `*𝐀𝐥𝐨𝐱'𝐬 𝐫𝐞𝐩𝐥𝐲 🫸🔵🫷*\n𖣫 ᗩᒪᒪ ᗪᗴᗰOᑎՏ𖣫\n➥𝕲𝙊𝙀𝙏𝙎  𝕺𝙁  𝕱𝘼𝘾𝘼𝘽𝙊𝙊𝙆\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𖥡┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅𖥡\n𝑡𝔥𝔢 𝔮𝔩𝔬𝔵 𝔮𝔩𝑤𝔮𝑦𝑠 𝑠𝑡𝔢𝑝𝑠 𝑜𝑛 𝑠𝑝𝑖𝑑𝑒𝑟𝑠 𝔮𝑛𝑑 𝑖𝔫𝔰𝔢𝔠𝑡𝑠 𝔩𝔦𝔨𝔢 𝔪𝑜𝑐𝑟𝑜𝑤𝔮𝑡.\n\n                           ↫🪫↬\n\n   ➥『𝐖𝐄 𝐀𝐑𝐄 𝐇𝐈𝐒𝐓𝐎𝐑𝐘』╮\n\n    ⌯        .ℙ𝕒𝕥𝕣𝕚𝕔𝕜.\n\n➥ 𝐀𝐋𝐎𝐗 🔥\n\n『༴̤☠︎︎⋆̤☯』⇣؍.َِ𝗧𝗛𝗘 𝗞𝗜𝗡𝗚⏤͟͟͞͞𝗔𝗟𝗢𝗫\n\n        ➥【𝕯𝐸𝑀ϴ𝑁𝔖】\n\n𝙇𝙀𝘼𝘿𝙀𝙍 𝙊𝙁 𝘼𝙇𝙇 𝙁𝘼𝘾𝙀𝘽𝙊𝙊𝙆 𒆙⌯𖠨𖠫𖠰𖠱𖠳\n\n⏤͟͟͞͞🫸⛩️🫷𝐀𝐒𝐓𝐑𝐎`;
 
 let logsHistory = [];
 function addLog(msg) {
@@ -200,67 +200,71 @@ function startBotEngine() {
       }
     }
 
-    // استعادة المحادثات النشطة السابقة
     savedThreads.forEach((tId) => startWoxLoop(tId));
 
-    // الاستماع للأحداث والرسائل
+    // الاستماع للأحداث والرسائل مع سجلات فحص الأدمن
     api.listenMqtt(async (err, event) => {
       try {
         if (err || !event) return;
 
-        // التعامل مع مغادرة الأعضاء
         if (event.type === "event" && event.logMessageType === "log:unsubscribe") {
           await sendMessageWithTyping(api, "غادر المهرج المجموعة", event.threadID, 1500);
           return;
         }
 
-        // استقبال الرسائل
         if (event.type === "message" || event.type === "message_reply") {
           const body = String(event.body || "").trim();
-          const senderID = String(event.senderID || "");
-          const threadID = String(event.threadID || "");
+          const senderID = String(event.senderID || "").trim();
+          const threadID = String(event.threadID || "").trim();
 
           if (!body) return;
 
-          addLog(`📩 [رسالة] من ${senderID} في ${threadID}: ${body}`);
+          addLog(`📩 [رسالة] من ID: (${senderID}) | النص: "${body}"`);
 
-          // 1. أمر تشغيل الوكس المطلوبة: /الوكس تشغيل
+          const checkAdmin = isAdmin(senderID);
+          addLog(`🔍 نتيجة فحص الأدمن لـ ${senderID}: ${checkAdmin ? "مقبول ✅" : "مرفوض ❌"}`);
+
+          // 1. أمر تشغيل الوكس
           if (body === "/الوكس تشغيل" || body.includes("! الوكس قل لهم الصراحة")) {
-            if (isAdmin(senderID)) {
+            if (checkAdmin) {
               stopWoxLoop(threadID);
               await sendMessageWithTyping(api, "🔥🔷𝐓𝐇𝐄 𝐊𝐈𝐍𝐆 𝐀𝐋𝐎𝐗 𝐈𝐒 𝐇𝐄𝐑𝐄 🌪❌", threadID, 2000);
               startWoxLoop(threadID);
+            } else {
+              addLog(`⚠️ تم رفض أمر التشغيل: المعرف ${senderID} غير موجود بقائمة ADMINS`);
             }
           }
-          // 2. أمر إيقاف الوكس المطلوب: /stop
+          // 2. أمر إيقاف الوكس
           else if (body === "/stop" || body.includes("الوكس ايقاف")) {
-            if (isAdmin(senderID)) {
+            if (checkAdmin) {
               if (activeWoxThreads.has(threadID)) {
                 stopWoxLoop(threadID);
                 await sendMessageWithTyping(api, "𝙏𝙃𝙀 𝘼𝙇𝙊𝙓 𝙈𝙊𝘿𝙀 𝙄𝙎 𝙎𝙏𝙊𝙋𝙋𝙀𝘿 ❌", threadID, 1500);
               } else {
                 await sendMessageWithTyping(api, "متت اختفو 😂", threadID, 1500);
               }
+            } else {
+              addLog(`⚠️ تم رفض أمر الإيقاف: المعرف ${senderID} غير موجود بقائمة ADMINS`);
             }
           }
-          // 3. أمر مدة التشغيل المطلوب: /up
+          // 3. أمر مدة التشغيل (يعمل للجميع للتأكد من اتصال البوت)
           else if (body === "/up" || body === "/uptime") {
             const uptimeText = `⚙️ **مدة تشغيل البوت المستمرة:**\n⏱️ ${getUptime()}`;
             await sendMessageWithTyping(api, uptimeText, threadID, 1000);
           }
           // 4. أمر فحص جاهزية الأدمن
           else if (body === "!ألوكس" || body === "! ألوكس") {
-            if (isAdmin(senderID)) {
+            if (checkAdmin) {
               const replyText = `👑𝐀𝐥𝐨𝐱'𝐬 𝐵𝑂َ𝑇 𝐢𝐬 𝐨𝐧👑\n🔵𝗬𝗼𝘂 𝘄𝗮𝗻𝘁 𝘁𝗼 𝘀𝘁𝗮𝗿𝘁?`;
               await sendMessageWithTyping(api, replyText, threadID, 2000);
             }
           }
           // 5. أمر التفاعل العادي
           else if (body === "! الوكس" || body === "!الوكس") {
-            if (isAdmin(senderID)) {
+            if (checkAdmin) {
               await sendMessageWithTyping(api, "انا هنا !", threadID, 1000);
             } else {
-              await sendMessageWithTyping(api, "ڪ│😂⇦𖤛🧞‍♂️┋ـسـفـڪ", threadID, 1500);
+              await sendMessageWithTyping(api, "ڪ│😂⇦𖤛🧞‍♂️┋ـسـفـك", threadID, 1500);
             }
           }
         }
@@ -330,7 +334,7 @@ app.get("/", (req, res) => {
       <h2>🔵 إعدادات الوكس (Wox Settings)</h2>
       <form action="/save-wox" method="POST">
         <label><input type="checkbox" name="enabled" ${woxConfig.enabled ? 'checked' : ''}> تفعيل إرسال Wox التلقائي</label><br><br>
-        <label>الفارق الزمني بين الرسائل (بالميلي ثانية - 15000 تعني 15 ثانية):</label>
+        <label>الفارق الزمني بين الرسائل (بالميلي ثانية):</label>
         <input type="number" name="interval" value="${woxConfig.interval}"><br><br>
         <label>نص Wox:</label>
         <textarea name="text" rows="6">${woxConfig.text}</textarea>
@@ -374,7 +378,7 @@ app.post("/save-appstate", (req, res) => {
     const raw = req.body.appState;
     JSON.parse(raw);
     fs.writeFileSync(appStateFile, raw, "utf8");
-    addLog("💾 تم تحديث وحفظ الكوكيز بنجاح من الداشبورد.");
+    addLog("💾 تم تحديث وحفظ الكوكيز بنجاح.");
   } catch (e) {
     addLog("❌ فشل حفظ الكوكيز: تأكد من إدخال JSON صحيح.");
   }
@@ -397,7 +401,7 @@ app.post("/save-wox", (req, res) => {
 });
 
 app.listen(PORT, () => {
-  addLog(`🌐 يعمل خادم الداشبورد على المنفذ (Port): ${PORT}`);
+  addLog(`🌐 يعمل خادم الداشبورد على المنفذ: ${PORT}`);
   startBotEngine();
 });
 
