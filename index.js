@@ -1,4 +1,4 @@
-const login = require("fca-unofficial");
+const login = require("@vangbanlanhat/fca-unofficial");
 const fs = require("fs");
 const path = require("path");
 
