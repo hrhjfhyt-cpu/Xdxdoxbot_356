@@ -24,7 +24,7 @@ process.on("unhandledRejection", (reason) => {
 const PORT = process.env.PORT || 8080;
 
 // إضافة المعرفين لضمان التعرف عليك كأدمن دائماً
-const ADMINS = new Set(["61593590627474"]);
+const ADMINS = new Set(["61593590627474","61593997454796",]);
 function isAdmin(senderID) {
   return ADMINS.has(String(senderID));
 }
