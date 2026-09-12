@@ -29,7 +29,7 @@ const appStateFile = path.join(__dirname, "appstate.json");
 const woxConfigFile = path.join(__dirname, "wox_config.json");
 const woxStateFile = path.join(__dirname, "wox_state.json");
 
-const DEFAULT_WOX_TEXT = `*𝐀𝐥𝐨𝐱'𝐬 𝐫𝐞𝐩𝐥𝐲 🫸🔵🫷*\n𖣫 ᗩᒪᒪ ᗪᗴᗰOᑎՏ𖣫\n➥𝕲𝙊𝙀𝙏𝙎  𝕺𝙁  𝕱𝘼𝘾𝘼𝘽𝙊𝙊𝙆\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𖥡┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅𖥡\n𝑡𝔥𝔢 𝔮𝔩𝔬𝔵 𝔮𝔩𝑤𝔮𝑦𝑠 𝑠𝑡𝔢𝑝𝑠 𝑜𝑛 𝑠𝑝𝑖𝑑𝑒𝑟𝑠 𝔮𝑛𝑑 𝑖𝔫𝔰𝔢𝔠𝑡𝑠 𝔩𝔦𝔨𝔢 𝔪𝔬𝑐𝑟𝔬𝑤𝔮𝑡.\n\n                           ↫🪫↬\n\n   ➥『𝐖𝐄 𝐀𝐑𝐄 𝐇𝐈𝐒𝐓𝐎𝐑𝐘』╮\n\n    ⌯        .ℙ𝕒𝕥𝕣𝕚𝕔𝕜.\n\n➥ 𝐀𝐋𝐎𝐗 🔥\n\n『༴̤☠︎︎⋆̤☯』⇣؍.َِ𝗧𝗛𝗘 𝗞𝗜𝗡𝗚⏤͟͟͞͞𝗔𝗟𝗢𝗫\n\n        ➥【𝕯𝐸𝑀ϴ𝑁𝔖】\n\n𝙇𝙀𝘼𝘿𝙀𝙍 𝙊𝙁 𝘼𝙇𝙇 𝙁𝘼𝘾𝙀𝘽𝙊𝙊𝙆 𒆙⌯𖠨𖠫𖠰𖠱𖠳\n\n⏤͟͟͞͞🫸⛩️🫷𝐀𝐒𝐓𝐑𝐎`;
+const DEFAULT_WOX_TEXT = `*𝐀𝐥𝐨𝐱'𝐬 𝐫𝐞𝐩𝐥𝐲 🫸🔵🫷*\n𖣫 ᗩᗰOᑎՏ𖣫\n➥𝕲𝙊𝙀𝙏𝙎  𝕺𝙁  𝕱𝘼𝘾𝘼𝘽𝙊𝙊𝙆\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𖥡┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅𖥡\n𝑡𝔥𝔢 𝔮𝔩𝔬𝔵 𝔮𝔩𝑤𝔮𝑦𝑠 𝑠𝑡𝔢𝑝𝑠 𝑜𝑛 𝑠𝑝𝑖𝑑𝑒𝑟𝑠 𝔮𝑛𝑑 𝑖𝔫𝔰𝔢𝔠𝑡𝑠 𝔩𝔦𝔨𝔢 𝔪𝔬𝑐𝑟𝔬𝑤𝔮𝑡.\n\n                           ↫🪫↬\n\n   ➥『𝐖𝐄 𝐀𝐑𝐄 𝐇𝐈𝐒𝐓𝐎𝐑𝐘』╮\n\n    ⌯        .ℙ𝕒𝕥𝕣𝕚𝕔𝕜.\n\n➥ 𝐀𝐋𝐎𝐗 🔥\n\n『༴̤☠︎︎⋆̤☯』⇣؍.َِ𝗧𝗛𝗘 𝗞𝗜𝗡𝗚⏤͟͟͞͞𝗔𝗟𝗢𝗫\n\n        ➥【𝕯𝐸𝑀ϴ𝑁𝔖】\n\n𝙇𝙀𝘼𝘿𝙀𝙍 𝙊𝙁 𝘼𝙇𝙇 𝙁𝘼𝘾𝙀𝘽𝙊𝙊𝙆 𒆙⌯𖠨𖠫𖠰𖠱𖠳\n\n⏤͟͟͞͞🫸⛩️🫷𝐀𝐒𝐓𝐑𝐎`;
 
 let logsHistory = [];
 function addLog(msg) {
@@ -57,8 +57,7 @@ function getValidAppState() {
   try {
     const rawData = fs.readFileSync(appStateFile, "utf8").trim();
     if (!rawData) return null;
-    JSON.parse(rawData);
-    return rawData;
+    return JSON.parse(rawData);
   } catch (e) {
     addLog(`❌ خطأ في قراءة ملف appstate.json: ${e.message}`);
     return null;
@@ -94,13 +93,12 @@ function saveSavedWoxThreads(threads) {
 }
 
 // ===============================
-// 3. المحرك المتقدم ومحاكاة الكتابة
+// 3. المحرك المتقدم
 // ===============================
 let botStatus = "OFFLINE";
 let activeWoxThreads = new Map();
 let currentApi = null;
 
-// إصلاح الاستجابة وتفادي توقف الرسائل
 function sendMessageDirect(api, messageText, threadID) {
   return new Promise((resolve) => {
     try {
@@ -125,8 +123,8 @@ function stopBotEngine() {
 function startBotEngine() {
   if (botStatus === "ONLINE") return;
 
-  const appStateRaw = getValidAppState();
-  if (!appStateRaw) {
+  const appStateParsed = getValidAppState();
+  if (!appStateParsed) {
     addLog("❌ ملف appstate.json غير موجود أو غير صالح.");
     botStatus = "OFFLINE";
     return;
@@ -134,9 +132,10 @@ function startBotEngine() {
 
   addLog(`▶️ جاري تشغيل البوت...`);
 
-  login({ appState: appStateRaw }, (loginErr, api) => {
+  // استخدام طريقة التمرير الصحيحة والأصلية لمكتبة ws3-fca
+  login({ appState: appStateParsed }, (loginErr, api) => {
     if (loginErr) {
-      addLog(`❌ فشل تسجيل الدخول: ${loginErr.message || JSON.stringify(loginErr)}`);
+      addLog(`❌ فشل تسجيل الدخول: ${loginErr.error || loginErr.message || JSON.stringify(loginErr)}`);
       botStatus = "OFFLINE";
       return;
     }
@@ -187,7 +186,7 @@ function startBotEngine() {
     // استعادة المحادثات النشطة السابقة
     savedThreads.forEach((tId) => startWoxLoop(tId));
 
-    // الاستماع للأحداث والرسائل مع معالجة سريعة بدون توقف
+    // الاستماع للأحداث والرسائل مع معالجة سريعة
     api.listenMqtt(async (err, event) => {
       try {
         if (err || !event) return;
