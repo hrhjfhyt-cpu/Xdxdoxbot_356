@@ -1,4 +1,3 @@
-
 const { login } = require("ws3-fca");
 const fs = require("fs");
 
@@ -6,7 +5,7 @@ const fs = require("fs");
 // Login / AppState
 // ===============================
 
-function loadAppStateRaw() {
+function loadAppState() {
   try {
     const raw = fs.readFileSync("./appstate.json", "utf8");
     const cookies = JSON.parse(raw);
@@ -19,16 +18,11 @@ function loadAppStateRaw() {
       .filter(cookie =>
         cookie &&
         typeof cookie === "object" &&
-        (cookie.value !== undefined || cookie.cookie !== undefined)
+        cookie.value !== undefined
       )
       .map(cookie => ({
         key: String(cookie.key || cookie.name || ""),
-        value: String(cookie.value || cookie.cookie || ""),
-        domain: String(cookie.domain || "facebook.com"),
-        path: String(cookie.path || "/"),
-        hostOnly: Boolean(cookie.hostOnly ?? false),
-        creation: cookie.creation || new Date().toISOString(),
-        lastAccessed: cookie.lastAccessed || new Date().toISOString()
+        value: String(cookie.value)
       }))
       .filter(cookie => cookie.key.length > 0);
 
@@ -38,18 +32,20 @@ function loadAppStateRaw() {
 
     console.log(`🍪 Loaded ${appState.length} cookies.`);
 
-    // نحولها هنا إلى String لأن ws3-fca تتوقع النص لتطبيق split عليه داخلياً
-    return JSON.stringify(appState);
+    return appState;
 
   } catch (e) {
-    console.error("❌ Failed to load appstate.json:", e.message);
+    console.error(
+      "❌ Failed to load appstate.json:",
+      e.message
+    );
+
     process.exit(1);
   }
 }
 
-// تمرير appState على شكل JSON String
 const loginOptions = {
-  appState: loadAppStateRaw()
+  appState: loadAppState()
 };
 
 // ===============================
@@ -63,7 +59,10 @@ let savedWoxThreads = [];
 
 try {
   if (fs.existsSync(woxStateFile)) {
-    const savedData = JSON.parse(fs.readFileSync(woxStateFile, "utf8"));
+    const savedData = JSON.parse(
+      fs.readFileSync(woxStateFile, "utf8")
+    );
+
     if (Array.isArray(savedData)) {
       savedWoxThreads = savedData;
     }
@@ -84,8 +83,8 @@ const DEFAULT_WOX_TEXT = `*𝐀𝐥𝐨𝐱'𝐬 𝐫𝐞𝐩𝐥𝐲 🫸🔵�
 𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋
 𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋
 𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋
-𖥡┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅𖥡
-𝑡𝔥𝔢 𝔮𝔩𝔬𝔵 𝔮𝔩𝑤𝔮𝑦𝑠 𝑠𝑡𝔢𝑝𝑠 𝑜𝑛 𝑠𝑝𝑖𝑑𝑒𝑟𝑠 𝔮𝑛𝑑 𝑖𝔫𝑠𝑒𝑐𝑡𝑠 𝔩𝔦𝔨𝔢 𝔪𝔬𝑐𝑟𝔬𝑤𝔮𝔱.
+𖥡┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅𖥡
+𝑡𝔥𝔢 𝔮𝔩𝔬𝔵 𝔮𝔩𝑤𝔮𝑦𝑠 𝑠𝑡𝔢𝑝𝑠 𝑜𝑛 𝑠𝑝𝑖𝑑𝑒𝑟𝑠 𝔮𝑛𝔡 𝑖𝔫𝑠𝑒𝑐𝑡𝑠 𝔩𝔦𝔨𝔢 𝔪𝔬𝑐𝑟𝔬𝑤𝔮𝑡.
 
                            ↫🪫↬
 
@@ -119,27 +118,38 @@ function loadWoxConfig() {
         JSON.stringify(defaultConfig, null, 2),
         "utf8"
       );
+
       return defaultConfig;
     }
 
-    const savedConfig = JSON.parse(fs.readFileSync(woxConfigFile, "utf8"));
+    const savedConfig = JSON.parse(
+      fs.readFileSync(woxConfigFile, "utf8")
+    );
 
     return {
       enabled:
         typeof savedConfig.enabled === "boolean"
           ? savedConfig.enabled
           : true,
+
       interval:
         Number(savedConfig.interval) >= 1000
           ? Number(savedConfig.interval)
           : 15000,
+
       text:
-        typeof savedConfig.text === "string" && savedConfig.text.length > 0
+        typeof savedConfig.text === "string" &&
+        savedConfig.text.length > 0
           ? savedConfig.text
           : DEFAULT_WOX_TEXT
     };
+
   } catch (e) {
-    console.error("❌ Wox config error:", e.message);
+    console.error(
+      "❌ Wox config error:",
+      e.message
+    );
+
     return defaultConfig;
   }
 }
@@ -155,8 +165,12 @@ function saveWoxState() {
       JSON.stringify(savedWoxThreads, null, 2),
       "utf8"
     );
+
   } catch (e) {
-    console.error("❌ Wox state save error:", e.message);
+    console.error(
+      "❌ Wox state save error:",
+      e.message
+    );
   }
 }
 
@@ -168,7 +182,9 @@ function addWoxThread(threadID) {
 }
 
 function removeWoxThread(threadID) {
-  const index = savedWoxThreads.indexOf(threadID);
+  const index =
+    savedWoxThreads.indexOf(threadID);
+
   if (index !== -1) {
     savedWoxThreads.splice(index, 1);
     saveWoxState();
@@ -180,8 +196,12 @@ function removeWoxThread(threadID) {
 // ===============================
 
 login(loginOptions, (err, api) => {
+
   if (err) {
-    return console.error("❌ Login error:", err);
+    return console.error(
+      "❌ Login error:",
+      err
+    );
   }
 
   // ===============================
@@ -189,16 +209,28 @@ login(loginOptions, (err, api) => {
   // ===============================
 
   try {
-    if (typeof api.sessionGuard === "function") {
-      api.sessionGuard("./appstate.json", {
-        interval: 3 * 60 * 1000,
-        debounce: 30 * 1000
-      });
 
-      console.log("🔄 SessionGuard is active.");
+    if (typeof api.sessionGuard === "function") {
+
+      api.sessionGuard(
+        "./appstate.json",
+        {
+          interval: 3 * 60 * 1000,
+          debounce: 30 * 1000
+        }
+      );
+
+      console.log(
+        "🔄 SessionGuard is active."
+      );
     }
+
   } catch (e) {
-    console.error("❌ SessionGuard error:", e.message);
+
+    console.error(
+      "❌ SessionGuard error:",
+      e.message
+    );
   }
 
   api.setOptions({
@@ -208,7 +240,9 @@ login(loginOptions, (err, api) => {
     listenTyping: false
   });
 
-  console.log("✅ Bot is running with E2EE library...");
+  console.log(
+    "✅ Bot is running with E2EE library..."
+  );
 
   // ===============================
   // Online / Offline
@@ -217,42 +251,91 @@ login(loginOptions, (err, api) => {
   let isOnline = true;
 
   function schedulePresenceCycle() {
+
     const activeDuration =
-      Math.floor(Math.random() * (7200000 - 3600000 + 1)) + 3600000;
+      Math.floor(
+        Math.random() *
+        (7200000 - 3600000 + 1)
+      ) + 3600000;
 
     setTimeout(() => {
+
       isOnline = false;
-      api.setOptions({ online: false });
-      console.log("🌙 Bot is now offline/inactive for 15 minutes.");
+
+      api.setOptions({
+        online: false
+      });
+
+      console.log(
+        "🌙 Bot is now offline/inactive for 15 minutes."
+      );
 
       setTimeout(() => {
+
         isOnline = true;
-        api.setOptions({ online: true });
-        console.log("☀️ Bot is back online.");
+
+        api.setOptions({
+          online: true
+        });
+
+        console.log(
+          "☀️ Bot is back online."
+        );
+
         schedulePresenceCycle();
+
       }, 900000);
 
     }, activeDuration);
   }
 
-  api.setOptions({ online: true });
+  api.setOptions({
+    online: true
+  });
+
   schedulePresenceCycle();
 
   // ===============================
   // Send with typing
   // ===============================
 
-  async function sendMessageWithTyping(text, threadID, delayMs = 1500) {
+  async function sendMessageWithTyping(
+    text,
+    threadID,
+    delayMs = 1500
+  ) {
+
     try {
-      if (typeof api.sendTypingIndicator === "function") {
-        api.sendTypingIndicator(threadID, () => {});
+
+      if (
+        typeof api.sendTypingIndicator ===
+        "function"
+      ) {
+
+        api.sendTypingIndicator(
+          threadID,
+          () => {}
+        );
       }
 
-      await new Promise(resolve => setTimeout(resolve, delayMs));
-      return await api.sendMessage(text, threadID);
+      await new Promise(resolve =>
+        setTimeout(resolve, delayMs)
+      );
+
+      return await api.sendMessage(
+        text,
+        threadID
+      );
 
     } catch (e) {
-      return await api.sendMessage(text, threadID).catch(() => {});
+
+      return await api
+        .sendMessage(
+          text,
+          threadID
+        )
+        .catch(() => {});
+
     }
   }
 
@@ -260,39 +343,65 @@ login(loginOptions, (err, api) => {
   // Wox intervals
   // ===============================
 
-  const woxIntervals = new Map();
-  const adminID = "61594108102958";
+  const woxIntervals =
+    new Map();
+
+  const adminID =
+    "61594108102958";
 
   // ===============================
   // Start Wox
   // ===============================
 
-  function startWox(threadID, announce = false) {
-    if (woxIntervals.has(threadID)) {
+  function startWox(
+    threadID,
+    announce = false
+  ) {
+
+    if (
+      woxIntervals.has(threadID)
+    ) {
       return;
     }
 
-    const config = loadWoxConfig();
+    const config =
+      loadWoxConfig();
 
-    const newInterval = setInterval(async () => {
-      const currentConfig = loadWoxConfig();
+    const newInterval =
+      setInterval(
+        async () => {
 
-      if (!currentConfig.enabled) {
-        return;
-      }
+          const currentConfig =
+            loadWoxConfig();
 
-      try {
-        await api.sendMessage(currentConfig.text, threadID);
-      } catch (e) {
-        // تجاهل أخطاء الإرسال
-      }
+          if (!currentConfig.enabled) {
+            return;
+          }
 
-    }, config.interval);
+          try {
 
-    woxIntervals.set(threadID, newInterval);
+            await api.sendMessage(
+              currentConfig.text,
+              threadID
+            );
+
+          } catch (e) {
+            // تجاهل أخطاء الإرسال
+          }
+
+        },
+        config.interval
+      );
+
+    woxIntervals.set(
+      threadID,
+      newInterval
+    );
+
     addWoxThread(threadID);
 
     if (announce) {
+
       sendMessageWithTyping(
         "🔥🔷𝐓𝐇𝐄 𝐊𝐈𝐍𝐆 𝐀𝐋𝐎𝐗 𝐈𝐒 𝐇𝐄𝐑𝐄 🌪❌",
         threadID
@@ -305,11 +414,23 @@ login(loginOptions, (err, api) => {
   // ===============================
 
   function stopWox(threadID) {
-    if (woxIntervals.has(threadID)) {
-      clearInterval(woxIntervals.get(threadID));
-      woxIntervals.delete(threadID);
+
+    if (
+      woxIntervals.has(threadID)
+    ) {
+
+      clearInterval(
+        woxIntervals.get(threadID)
+      );
+
+      woxIntervals.delete(
+        threadID
+      );
     }
-    removeWoxThread(threadID);
+
+    removeWoxThread(
+      threadID
+    );
   }
 
   // ===============================
@@ -317,18 +438,42 @@ login(loginOptions, (err, api) => {
   // ===============================
 
   function restartAllWoxIntervals() {
-    const activeThreads = Array.from(woxIntervals.keys());
 
-    for (const threadID of activeThreads) {
-      clearInterval(woxIntervals.get(threadID));
-      woxIntervals.delete(threadID);
+    const activeThreads =
+      Array.from(
+        woxIntervals.keys()
+      );
+
+    for (
+      const threadID
+      of activeThreads
+    ) {
+
+      clearInterval(
+        woxIntervals.get(
+          threadID
+        )
+      );
+
+      woxIntervals.delete(
+        threadID
+      );
     }
 
-    for (const threadID of savedWoxThreads) {
-      startWox(threadID, false);
+    for (
+      const threadID
+      of savedWoxThreads
+    ) {
+
+      startWox(
+        threadID,
+        false
+      );
     }
 
-    console.log("🔄 Wox intervals reloaded from configuration.");
+    console.log(
+      "🔄 Wox intervals reloaded from configuration."
+    );
   }
 
   // ===============================
@@ -338,157 +483,299 @@ login(loginOptions, (err, api) => {
   let lastWoxConfig = "";
 
   try {
-    lastWoxConfig = fs.existsSync(woxConfigFile)
-      ? fs.readFileSync(woxConfigFile, "utf8")
-      : "";
 
-    fs.watchFile(woxConfigFile, { interval: 1000 }, () => {
-      try {
-        const newConfig = fs.readFileSync(woxConfigFile, "utf8");
+    lastWoxConfig =
+      fs.existsSync(
+        woxConfigFile
+      )
+        ? fs.readFileSync(
+            woxConfigFile,
+            "utf8"
+          )
+        : "";
 
-        if (newConfig !== lastWoxConfig) {
-          lastWoxConfig = newConfig;
-          restartAllWoxIntervals();
+    fs.watchFile(
+      woxConfigFile,
+      {
+        interval: 1000
+      },
+      () => {
+
+        try {
+
+          const newConfig =
+            fs.readFileSync(
+              woxConfigFile,
+              "utf8"
+            );
+
+          if (
+            newConfig !==
+            lastWoxConfig
+          ) {
+
+            lastWoxConfig =
+              newConfig;
+
+            restartAllWoxIntervals();
+          }
+
+        } catch (e) {
+
+          console.error(
+            "❌ Wox config watch error:",
+            e.message
+          );
         }
-
-      } catch (e) {
-        console.error("❌ Wox config watch error:", e.message);
       }
-    });
+    );
 
   } catch (e) {
-    console.error("❌ Failed to watch Wox config:", e.message);
+
+    console.error(
+      "❌ Failed to watch Wox config:",
+      e.message
+    );
   }
 
   // ===============================
   // Restore Wox
   // ===============================
 
-  if (savedWoxThreads.length > 0) {
-    console.log(`🔄 Restoring Wox mode for ${savedWoxThreads.length} thread(s)...`);
+  if (
+    savedWoxThreads.length > 0
+  ) {
 
-    for (const threadID of savedWoxThreads) {
-      startWox(threadID, false);
+    console.log(
+      `🔄 Restoring Wox mode for ${savedWoxThreads.length} thread(s)...`
+    );
+
+    for (
+      const threadID
+      of savedWoxThreads
+    ) {
+
+      startWox(
+        threadID,
+        false
+      );
     }
 
-    console.log("✅ Previous Wox states restored.");
+    console.log(
+      "✅ Previous Wox states restored."
+    );
   }
 
   // ===============================
   // Messenger listener
   // ===============================
 
-  api.listenMqtt(async (err, event) => {
-    try {
-      if (err) {
-        if (err.message && err.message.includes("E2EE")) {
-          return;
+  api.listenMqtt(
+    async (err, event) => {
+
+      try {
+
+        if (err) {
+
+          if (
+            err.message &&
+            err.message.includes(
+              "E2EE"
+            )
+          ) {
+            return;
+          }
+
+          return console.error(
+            "❌ Mqtt error:",
+            err
+          );
         }
-        return console.error("❌ Mqtt error:", err);
-      }
 
-      if (!event || !event.threadID || !event.senderID) {
-        return;
-      }
-
-      // ===============================
-      // Group leave
-      // ===============================
-
-      if (
-        event.type === "event" &&
-        event.logMessageType === "log:unsubscribe"
-      ) {
-        return sendMessageWithTyping(" غادر المهرج المجموعة", event.threadID);
-      }
-
-      // ===============================
-      // Messages
-      // ===============================
-
-      if (
-        event.type === "message" ||
-        event.type === "message_reply"
-      ) {
-        if (!event.body || typeof event.body !== "string") {
+        if (
+          !event ||
+          !event.threadID ||
+          !event.senderID
+        ) {
           return;
         }
 
-        const body = event.body.trim();
-
         // ===============================
-        // Wox ON
+        // Group leave
         // ===============================
 
-        if (body === "/الوكس تشغيل" && event.senderID === adminID) {
-          if (woxIntervals.has(event.threadID)) {
-            clearInterval(woxIntervals.get(event.threadID));
-            woxIntervals.delete(event.threadID);
-          }
+        if (
+          event.type === "event" &&
+          event.logMessageType ===
+            "log:unsubscribe"
+        ) {
 
-          await sendMessageWithTyping(
-            "🔥🔷𝐓𝐇𝐄 𝐊𝐈𝐍𝐆 𝐀𝐋𝐎𝐗 𝐈𝐒 𝐇𝐄𝐑𝐄 🌪❌",
-            event.threadID
-          );
-
-          startWox(event.threadID, false);
-        }
-
-        // ===============================
-        // Wox OFF
-        // ===============================
-
-        if (body === "! الوكس ايقاف" && event.senderID === adminID) {
-          if (woxIntervals.has(event.threadID)) {
-            clearInterval(woxIntervals.get(event.threadID));
-            woxIntervals.delete(event.threadID);
-            removeWoxThread(event.threadID);
-
-            await sendMessageWithTyping(
-              " 𝙏𝙃𝙀 𝘼𝙇𝙊𝙓 𝙈𝙊𝘿𝙀 𝙄𝙎 𝙎𝙏𝙊𝙋𝙋𝙀𝘿 ❌",
-              event.threadID
-            );
-
-          } else {
-            removeWoxThread(event.threadID);
-            await sendMessageWithTyping(" متت اختفو 😂", event.threadID);
-          }
-        }
-
-        // ===============================
-        // Admin commands
-        // ===============================
-
-        const text = event.body.toLowerCase().trim();
-        const isAdmin = event.senderID === adminID;
-
-        if (isAdmin) {
-          if (text === "!ألوكس") {
-            await sendMessageWithTyping(
-              `👑𝐀𝐥𝐨x'𝐬 𝐵𝑂َ𝑇 𝐢𝐬 𝐨𝐧👑\nꪱׁׁׁׅׅׅܻ⨍ ɑׁׅ݊ꪀᨮׁׅ֮ᨵׁׅׅ݊ꪀꫀׁׅܻ݊ ժׁׅ݊ɑׁׅꭈׁׅꫀׁׅܻׅ݊꯱ tׁׅᨵׁׅׅ݊ ᝯׁ֒hׁׅ֮ɑׁׅᥣׁׅ֪ᥣׁׅ֪ꫀׁׅܻ݊݊ꪀᧁׁꫀׁׅܻ݊ hׁׅ֮ꪱׁׁׁׅׅׅꩇׁׅ֪݊ , hׁׁׅׅ֮֮ꫀׁׅܻ݊'꯱ ᧁׁᨵׁׅׅ݊ꪀ݊ꪀɑׁׅ υׁׅׅ꯱ꫀׁׅܻ݊ :\nٱﺂݪو໑ڪَِكٍْسہًٍۦـس قݪ ݪهَـْہ‌‍َِٰمَِـۥـِمٛ ٱﺂݪصࢪٱﺂحٍَـحهَـْہ‌‍َِٰ!\n🔵𝗬𝗼𝘂 𝘄𝗮𝗻𝘁 𝘁𝗼 𝘀𝘁𝗮𝗿𝘁?`,
-              event.threadID
-            );
-          }
-        }
-
-        // ===============================
-        // Wox check
-        // ===============================
-
-        if (body === "! الوكس") {
-          if (event.senderID === adminID) {
-            return sendMessageWithTyping("انا هنا ! ", event.threadID);
-          }
-
-          sendMessageWithTyping(
-            "ڪ│😂⇦𖤛🧞‍♂️┋ـسـ╾༺☄️༻╿ـمـ︻︽『🐉』𒆙𒋨🔥 🦅𒁂𒁎ـڪ ",
+          return sendMessageWithTyping(
+            " غادر المهرج المجموعة",
             event.threadID
           );
         }
+
+        // ===============================
+        // Messages
+        // ===============================
+
+        if (
+          event.type === "message" ||
+          event.type === "message_reply"
+        ) {
+
+          if (
+            !event.body ||
+            typeof event.body !== "string"
+          ) {
+            return;
+          }
+
+          const body =
+            event.body.trim();
+
+          // ===============================
+          // Wox ON
+          // ===============================
+
+          if (
+            body === "/الوكس تشغيل" &&
+            event.senderID === adminID
+          ) {
+
+            if (
+              woxIntervals.has(
+                event.threadID
+              )
+            ) {
+
+              clearInterval(
+                woxIntervals.get(
+                  event.threadID
+                )
+              );
+
+              woxIntervals.delete(
+                event.threadID
+              );
+            }
+
+            await sendMessageWithTyping(
+              "🔥🔷𝐓𝐇𝐄 𝐊𝐈𝐍𝐆 𝐀𝐋𝐎𝐗 𝐈𝐒 𝐇𝐄𝐑𝐄 🌪❌",
+              event.threadID
+            );
+
+            startWox(
+              event.threadID,
+              false
+            );
+          }
+
+          // ===============================
+          // Wox OFF
+          // ===============================
+
+          if (
+            body === "! الوكس ايقاف" &&
+            event.senderID === adminID
+          ) {
+
+            if (
+              woxIntervals.has(
+                event.threadID
+              )
+            ) {
+
+              clearInterval(
+                woxIntervals.get(
+                  event.threadID
+                )
+              );
+
+              woxIntervals.delete(
+                event.threadID
+              );
+
+              removeWoxThread(
+                event.threadID
+              );
+
+              await sendMessageWithTyping(
+                " 𝙏𝙃𝙀 𝘼𝙇𝙊𝙓 𝙈𝙊𝘿𝙀 𝙄𝙎 𝙎𝙏𝙊𝙋𝙋𝙀𝘿 ❌",
+                event.threadID
+              );
+
+            } else {
+
+              removeWoxThread(
+                event.threadID
+              );
+
+              await sendMessageWithTyping(
+                " متت اختفو 😂",
+                event.threadID
+              );
+            }
+          }
+
+          // ===============================
+          // Admin commands
+          // ===============================
+
+          const text =
+            event.body
+              .toLowerCase()
+              .trim();
+
+          const isAdmin =
+            event.senderID === adminID;
+
+          if (isAdmin) {
+
+            if (
+              text === "!ألوكس"
+            ) {
+
+              await sendMessageWithTyping(
+                `👑𝐀𝐥𝐨x'𝐬 𝐵𝑂َ𝑇 𝐢𝐬 𝐨𝐧👑\nꪱׁׁׁׅׅׅܻ⨍ ɑׁׅ݊ꪀᨮׁׅ֮ᨵׁׅׅ݊ꪀꫀׁׅܻ݊ ժׁׅ݊ɑׁׅꭈׁׅꫀׁׅܻׅ݊꯱ tׁׅᨵׁׅׅ݊ ᝯׁ֒hׁׅ֮ɑׁׅᥣׁׅ֪ᥣׁׅ֪ꫀׁׅܻ݊݊ꪀᧁׁꫀׁׅܻ݊ hׁׅ֮ꪱׁׁׁׅׅׅꩇׁׅ֪݊ , hׁׁׅׅ֮֮ꫀׁׅܻ݊'꯱ ᧁׁᨵׁׅׅ݊ꪀ݊ꪀɑׁׅ υׁׅׅ꯱ꫀׁׅܻ݊ :\nٱﺂݪو໑ڪَِكٍْسہًٍۦـس قݪ ݪهَـْہ‌‍َِٰمَِـۥـِمٛ ٱﺂݪصࢪٱﺂحٍَـحهَـْہ‌‍َِٰ!\n🔵𝗬𝗼𝘂 𝘄𝗮𝗻𝘁 𝘁𝗼 𝘀𝘁𝗮𝗿𝘁?`,
+                event.threadID
+              );
+            }
+          }
+
+          // ===============================
+          // Wox check
+          // ===============================
+
+          if (
+            body === "! الوكس"
+          ) {
+
+            if (
+              event.senderID === adminID
+            ) {
+
+              return sendMessageWithTyping(
+                "انا هنا ! ",
+                event.threadID
+              );
+            }
+
+            sendMessageWithTyping(
+              "ڪ│😂⇦𖤛🧞‍♂️┋ـسـ╾༺☄️༻╿ـمـ︻︽『🐉』𒆙𒋨🔥 🦅𒁂𒁎ـڪ ",
+              event.threadID
+            );
+          }
+        }
+
+      } catch (e) {
+
+        console.error(
+          "❌ Error caught:",
+          e.message
+        );
       }
-
-    } catch (e) {
-      console.error("❌ Error caught:", e.message);
     }
-  });
+  );
 });
