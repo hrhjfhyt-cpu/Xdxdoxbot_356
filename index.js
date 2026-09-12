@@ -22,14 +22,20 @@ process.on("unhandledRejection", (reason) => {
 // 1. الإعدادات والمسارات العامة
 // ===============================
 const PORT = process.env.PORT || 8080;
-const adminID = "61593590627474";
+
+// إضافة المعرفين لضمان التعرف عليك كأدمن دائماً
+const ADMINS = new Set(["61593590627474", "61592604442767"]);
+function isAdmin(senderID) {
+  return ADMINS.has(String(senderID));
+}
+
 const startTime = Date.now(); // حساب وقت بداية تشغيل البوت لأمر /up
 
 const appStateFile = path.join(__dirname, "appstate.json");
 const woxConfigFile = path.join(__dirname, "wox_config.json");
 const woxStateFile = path.join(__dirname, "wox_state.json");
 
-const DEFAULT_WOX_TEXT = `*𝐀𝐥𝐨𝐱'𝐬 𝐫𝐞𝐩𝐥𝐲 🫸🔵🫷*\n𖣫 ᗩᗰOᑎՏ𖣫\n➥𝕲𝙊𝙀𝙏𝙎  𝕺𝙁  𝕱𝘼𝘾𝘼𝘽𝙊𝙊𝙆\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𖥡┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅𖥡\n𝑡𝔥𝔢 𝔮𝔩𝔬𝔵 𝔮𝔩𝑤𝔮𝑦𝑠 𝑠𝑡𝔢𝑝𝑠 𝑜𝑛 𝑠𝑝𝑖𝑑𝑒𝑟𝑠 𝔮𝑛𝑑 𝑖𝔫𝔰𝔢𝔠𝑡𝑠 𝔩𝔦𝔨𝔢 𝔪𝔬𝑐𝑟𝔬𝑤𝔮𝑡.\n\n                           ↫🪫↬\n\n   ➥『𝐖𝐄 𝐀𝐑𝐄 𝐇𝐈𝐒𝐓𝐎𝐑𝐘』╮\n\n    ⌯        .ℙ𝕒𝕥𝕣𝕚𝕔𝕜.\n\n➥ 𝐀𝐋𝐎𝐗 🔥\n\n『༴̤☠︎︎⋆̤☯』⇣؍.َِ𝗧𝗛𝗘 𝗞𝗜𝗡𝗚⏤͟͟͞͞𝗔𝗟𝗢𝗫\n\n        ➥【𝕯𝐸𝑀ϴ𝑁𝔖】\n\n𝙇𝙀𝘼𝘿𝙀𝙍 𝙊𝙁 𝘼𝙇𝙇 𝙁𝘼𝘾𝙀𝘽𝙊𝙊𝙆 𒆙⌯𖠨𖠫𖠰𖠱𖠳\n\n⏤͟͟͞͞🫸⛩️🫷𝐀𝐒𝐓𝐑𝐎`;
+const DEFAULT_WOX_TEXT = `*𝐀𝐥𝐨𝐱'𝐬 𝐫𝐞𝐩𝐥𝐲 🫸🔵🫷*\n𖣫 ᗩᒪᒪ ᗪᗴᗰOᑎՏ𖣫\n➥𝕲𝙊𝙀𝙏𝙎  𝕺𝙁  𝕱𝘼𝘾𝘼𝘽𝙊𝙊𝙆\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𖥡┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅𖥡\n𝑡𝔥𝔢 𝔮𝔩𝔬𝔵 𝔮𝔩𝑤𝔮𝑦𝑠 𝑠𝑡𝔢𝑝𝑠 𝑜𝑛 𝑠𝑝𝑖𝑑𝑒𝑟𝑠 𝔮𝑛𝑑 𝑖𝔫𝔰𝔢𝔠𝑡𝑠 𝔩𝔦𝔨𝔢 𝔪𝔬𝑐𝑟𝔬𝑤𝔮𝑡.\n\n                           ↫🪫↬\n\n   ➥『𝐖𝐄 𝐀𝐑𝐄 𝐇𝐈𝐒𝐓𝐎𝐑𝐘』╮\n\n    ⌯        .ℙ𝕒𝕥𝕣𝕚𝕔𝕜.\n\n➥ 𝐀𝐋𝐎𝐗 🔥\n\n『༴̤☠︎︎⋆̤☯』⇣؍.َِ𝗧𝗛𝗘 𝗞𝗜𝗡𝗚⏤͟͟͞͞𝗔𝗟𝗢𝗫\n\n        ➥【𝕯𝐸𝑀ϴ𝑁𝔖】\n\n𝙇𝙀𝘼𝘿𝙀𝙍 𝙊𝙁 𝘼𝙇𝙇 𝙁𝘼𝘾𝙀𝘽𝙊𝙊𝙆 𒆙⌯𖠨𖠫𖠰𖠱𖠳\n\n⏤͟͟͞͞🫸⛩️🫷𝐀𝐒𝐓𝐑𝐎`;
 
 let logsHistory = [];
 function addLog(msg) {
@@ -40,7 +46,6 @@ function addLog(msg) {
   if (logsHistory.length > 250) logsHistory.shift();
 }
 
-// دالة لحساب مدة التشغيل لأمر /up
 function getUptime() {
   const totalSeconds = Math.floor((Date.now() - startTime) / 1000);
   const hours = Math.floor(totalSeconds / 3600);
@@ -93,13 +98,26 @@ function saveSavedWoxThreads(threads) {
 }
 
 // ===============================
-// 3. المحرك المتقدم
+// 3. المحرك المتقدم ومحاكاة الكتابة
 // ===============================
 let botStatus = "OFFLINE";
 let activeWoxThreads = new Map();
 let currentApi = null;
 
-function sendMessageDirect(api, messageText, threadID) {
+function sendTypingIndicator(api, threadID, durationMs = 1500) {
+  return new Promise((resolve) => {
+    try {
+      api.sendTypingIndicator(threadID, (err) => {
+        setTimeout(() => resolve(), durationMs);
+      });
+    } catch (e) {
+      resolve();
+    }
+  });
+}
+
+async function sendMessageWithTyping(api, messageText, threadID, typingTimeMs = 1500) {
+  await sendTypingIndicator(api, threadID, typingTimeMs);
   return new Promise((resolve) => {
     try {
       api.sendMessage(messageText, threadID, (err, info) => {
@@ -132,7 +150,6 @@ function startBotEngine() {
 
   addLog(`▶️ جاري تشغيل البوت...`);
 
-  // استخدام طريقة التمرير الصحيحة والأصلية لمكتبة ws3-fca
   login({ appState: appStateParsed }, (loginErr, api) => {
     if (loginErr) {
       addLog(`❌ فشل تسجيل الدخول: ${loginErr.error || loginErr.message || JSON.stringify(loginErr)}`);
@@ -161,7 +178,7 @@ function startBotEngine() {
       const intervalId = setInterval(() => {
         const config = getWoxConfig();
         if (!config.enabled || botStatus !== "ONLINE") return;
-        sendMessageDirect(api, config.text, threadID);
+        sendMessageWithTyping(api, config.text, threadID, 1000);
       }, getWoxConfig().interval);
 
       activeWoxThreads.set(threadID, intervalId);
@@ -186,62 +203,64 @@ function startBotEngine() {
     // استعادة المحادثات النشطة السابقة
     savedThreads.forEach((tId) => startWoxLoop(tId));
 
-    // الاستماع للأحداث والرسائل مع معالجة سريعة
+    // الاستماع للأحداث والرسائل
     api.listenMqtt(async (err, event) => {
       try {
         if (err || !event) return;
 
+        // التعامل مع مغادرة الأعضاء
         if (event.type === "event" && event.logMessageType === "log:unsubscribe") {
-          await sendMessageDirect(api, "غادر المهرج المجموعة", event.threadID);
+          await sendMessageWithTyping(api, "غادر المهرج المجموعة", event.threadID, 1500);
           return;
         }
 
+        // استقبال الرسائل
         if (event.type === "message" || event.type === "message_reply") {
           const body = String(event.body || "").trim();
           const senderID = String(event.senderID || "");
           const threadID = String(event.threadID || "");
-          const isAdmin = senderID === adminID;
 
           if (!body) return;
 
           addLog(`📩 [رسالة] من ${senderID} في ${threadID}: ${body}`);
 
-          // 1. أمر التشغيل المطلوب: /الوكس تشغيل
-          if (body === "/الوكس تشغيل" || body === "! الوكس قل لهم الصراحة") {
-            if (isAdmin) {
+          // 1. أمر تشغيل الوكس المطلوبة: /الوكس تشغيل
+          if (body === "/الوكس تشغيل" || body.includes("! الوكس قل لهم الصراحة")) {
+            if (isAdmin(senderID)) {
               stopWoxLoop(threadID);
-              await sendMessageDirect(api, "🔥🔷𝐓𝐇𝐄 𝐊𝐈𝐍𝐆 𝐀𝐋𝐎𝐗 𝐈𝐒 𝐇𝐄𝐑𝐄 🌪❌", threadID);
+              await sendMessageWithTyping(api, "🔥🔷𝐓𝐇𝐄 𝐊𝐈𝐍𝐆 𝐀𝐋𝐎𝐗 𝐈𝐒 𝐇𝐄𝐑𝐄 🌪❌", threadID, 2000);
               startWoxLoop(threadID);
             }
           }
-          // 2. أمر الإيقاف المطلوب: /stop
-          else if (body === "/stop" || body === "! الوكس ايقاف") {
-            if (isAdmin) {
+          // 2. أمر إيقاف الوكس المطلوب: /stop
+          else if (body === "/stop" || body.includes("الوكس ايقاف")) {
+            if (isAdmin(senderID)) {
               if (activeWoxThreads.has(threadID)) {
                 stopWoxLoop(threadID);
-                await sendMessageDirect(api, "𝙏𝙃𝙀 𝘼𝙇𝙊𝙓 𝙈𝙊𝘿𝙀 𝙄𝙎 𝙎𝙏𝙊𝙋𝙋𝙀𝘿 ❌", threadID);
+                await sendMessageWithTyping(api, "𝙏𝙃𝙀 𝘼𝙇𝙊𝙓 𝙈𝙊𝘿𝙀 𝙄𝙎 𝙎𝙏𝙊𝙋𝙋𝙀𝘿 ❌", threadID, 1500);
               } else {
-                await sendMessageDirect(api, "الوكس غير متفاعل في هذه المجموعة أصلاً.", threadID);
+                await sendMessageWithTyping(api, "متت اختفو 😂", threadID, 1500);
               }
             }
           }
           // 3. أمر مدة التشغيل المطلوب: /up
           else if (body === "/up" || body === "/uptime") {
             const uptimeText = `⚙️ **مدة تشغيل البوت المستمرة:**\n⏱️ ${getUptime()}`;
-            await sendMessageDirect(api, uptimeText, threadID);
+            await sendMessageWithTyping(api, uptimeText, threadID, 1000);
           }
-          // الأوامر الفرعية السابقة
+          // 4. أمر فحص جاهزية الأدمن
           else if (body === "!ألوكس" || body === "! ألوكس") {
-            if (isAdmin) {
+            if (isAdmin(senderID)) {
               const replyText = `👑𝐀𝐥𝐨𝐱'𝐬 𝐵𝑂َ𝑇 𝐢𝐬 𝐨𝐧👑\n🔵𝗬𝗼𝘂 𝘄𝗮𝗻𝘁 𝘁𝗼 𝘀𝘁𝗮𝗿𝘁?`;
-              await sendMessageDirect(api, replyText, threadID);
+              await sendMessageWithTyping(api, replyText, threadID, 2000);
             }
           }
+          // 5. أمر التفاعل العادي
           else if (body === "! الوكس" || body === "!الوكس") {
-            if (isAdmin) {
-              await sendMessageDirect(api, "انا هنا !", threadID);
+            if (isAdmin(senderID)) {
+              await sendMessageWithTyping(api, "انا هنا !", threadID, 1000);
             } else {
-              await sendMessageDirect(api, "ڪ│😂⇦𖤛🧞‍♂️┋ـسـفـڪ", threadID);
+              await sendMessageWithTyping(api, "ڪ│😂⇦𖤛🧞‍♂️┋ـسـفـڪ", threadID, 1500);
             }
           }
         }
