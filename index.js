@@ -98,29 +98,63 @@ function saveSavedWoxThreads(threads) {
 }
 
 // ===============================
-// 3. المحرك المتقدم وإرسال الرسائل المضمون
+// 3. المحرك المتقدم والدالة الذكية للإرسال
 // ===============================
 let botStatus = "OFFLINE";
 let activeWoxThreads = new Map();
 let currentApi = null;
 
-// دالة إرسال سريعة وآمنة بدون التعليق على جاري الكتابة
-function safeSendMessage(api, messageText, threadID) {
+// دالة إرسال ذكية: تحاول عمل مؤشر كتابة مع مهلة أقصاها 800ms، إذا تعطلت ترسل فوراً بدونه!
+async function sendMessageSmart(api, messageText, threadID, typingDuration = 1000) {
+  // 1. محاولة إظهار مؤشر الكتابة مع حماية من التجمد
+  const showTypingWithTimeout = new Promise((resolve) => {
+    let done = false;
+    const timer = setTimeout(() => {
+      if (!done) {
+        done = true;
+        resolve(false); // انقضى الوقت ولم يستجب فيسبوك
+      }
+    }, 800); // مهلة 800 ميلي ثانية فقط
+
+    try {
+      api.sendTypingIndicator(threadID, (err) => {
+        if (!done) {
+          done = true;
+          clearTimeout(timer);
+          resolve(!err);
+        }
+      });
+    } catch (e) {
+      if (!done) {
+        done = true;
+        clearTimeout(timer);
+        resolve(false);
+      }
+    }
+  });
+
+  const typingSuccess = await showTypingWithTimeout;
+
+  // إذا نجح مؤشر الكتابة ننتظر الوقت المطلوب، وإذا فشل ننتظر تأخير بسيط جداً (400ms) لمنع الحظر
+  if (typingSuccess) {
+    await new Promise((r) => setTimeout(r, typingDuration));
+  } else {
+    await new Promise((r) => setTimeout(r, 400));
+  }
+
+  // 2. إرسال الرسالة الفعلي
   return new Promise((resolve) => {
     try {
-      // محاولة تفعيل جاري الكتابة بدون انتظار (Non-blocking)
-      try { api.sendTypingIndicator(threadID, () => {}); } catch(e){}
-
       api.sendMessage(messageText, threadID, (err, info) => {
         if (err) {
           addLog(`❌ فشل الإرسال إلى (${threadID}): ${err.errorDescription || err.message || JSON.stringify(err)}`);
         } else {
-          addLog(`📤 تم إرسال الرد بنجاح إلى (${threadID})`);
+          addLog(`📤 تم الإرسال بنجاح إلى (${threadID})`);
         }
         resolve(info);
       });
     } catch (e) {
-      addLog(`❌ خطأ غير متوقع في الإرسال: ${e.message}`);
+      addLog(`❌ خطأ غير متوقع عند الإرسال: ${e.message}`);
       resolve(null);
     }
   });
@@ -159,7 +193,7 @@ function startBotEngine() {
     try {
       api.setOptions({
         listenEvents: true,
-        selfListen: false, // تعطل الاستماع لرسائل البوت نفسه
+        selfListen: false,
         autoMarkDelivery: false,
         listenTyping: false
       });
@@ -171,17 +205,16 @@ function startBotEngine() {
 
     function startWoxLoop(threadID) {
       if (activeWoxThreads.has(threadID)) return;
-      
-      // إرسال أول رسالة فوراً
+
       const config = getWoxConfig();
       if (config.enabled && botStatus === "ONLINE") {
-        safeSendMessage(api, config.text, threadID);
+        sendMessageSmart(api, config.text, threadID, 500);
       }
 
       const intervalId = setInterval(() => {
         const cfg = getWoxConfig();
         if (!cfg.enabled || botStatus !== "ONLINE") return;
-        safeSendMessage(api, cfg.text, threadID);
+        sendMessageSmart(api, cfg.text, threadID, 500);
       }, getWoxConfig().interval);
 
       activeWoxThreads.set(threadID, intervalId);
@@ -205,15 +238,10 @@ function startBotEngine() {
 
     savedThreads.forEach((tId) => startWoxLoop(tId));
 
-    // الاستماع للأحداث والرسائل مع المرونة القوية
+    // الاستماع للأحداث والرسائل (للأدمن فقط)
     api.listenMqtt(async (err, event) => {
       try {
         if (err || !event) return;
-
-        if (event.type === "event" && event.logMessageType === "log:unsubscribe") {
-          await safeSendMessage(api, "غادر المهرج المجموعة", event.threadID);
-          return;
-        }
 
         if (event.type === "message" || event.type === "message_reply") {
           const body = String(event.body || "").trim();
@@ -222,52 +250,41 @@ function startBotEngine() {
 
           if (!body) return;
 
-          addLog(`📩 [رسالة] من ID: (${senderID}) | النص: "${body}"`);
+          // تصفية فورية: إذا لم يكن المرسل أدمن يتم تجاهل الرسالة تماماً وبصمت!
+          if (!isAdmin(senderID)) {
+            return;
+          }
 
-          const checkAdmin = isAdmin(senderID);
+          addLog(`📩 [رسالة أدمن] من ID: (${senderID}) | النص: "${body}"`);
 
           // 1. أمر تشغيل الوكس
           if (body.includes("/الوكس تشغيل") || body.includes("! الوكس قل لهم الصراحة")) {
-            if (checkAdmin) {
-              stopWoxLoop(threadID);
-              await safeSendMessage(api, "🔥🔷𝐓𝐇𝐄 𝐊𝐈𝐍𝐆 𝐀𝐋𝐎𝐗 𝐈𝐒 𝐇𝐄𝐑𝐄 🌪❌", threadID);
-              startWoxLoop(threadID);
-            } else {
-              addLog(`⚠️ تم رفض أمر التشغيل: المعرف ${senderID} غير مسجل كأدمن`);
-            }
+            stopWoxLoop(threadID);
+            await sendMessageSmart(api, "🔥🔷𝐓𝐇𝐄 𝐊𝐈𝐍𝐆 𝐀𝐋𝐎𝐗 𝐈𝐒 𝐇𝐄𝐑𝐄 🌪❌", threadID, 1000);
+            startWoxLoop(threadID);
           }
           // 2. أمر إيقاف الوكس
           else if (body.includes("/stop") || body.includes("الوكس ايقاف")) {
-            if (checkAdmin) {
-              if (activeWoxThreads.has(threadID)) {
-                stopWoxLoop(threadID);
-                await safeSendMessage(api, "𝙏𝙃𝙀 𝘼𝙇𝙊𝙓 𝙈𝙊𝘿𝙀 𝙄𝙎 𝙎𝙏𝙊𝙋𝙋𝙀𝘿 ❌", threadID);
-              } else {
-                await safeSendMessage(api, "متت اختفو 😂", threadID);
-              }
+            if (activeWoxThreads.has(threadID)) {
+              stopWoxLoop(threadID);
+              await sendMessageSmart(api, "𝙏𝙃𝙀 𝘼𝙇𝙊𝙓 𝙈𝙊𝘿𝙀 𝙄𝙎 𝙎𝙏𝙊𝙋𝙋𝙀𝘿 ❌", threadID, 1000);
             } else {
-              addLog(`⚠️ تم رفض أمر الإيقاف: المعرف ${senderID} غير مسجل كأدمن`);
+              await sendMessageSmart(api, "متت اختفو 😂", threadID, 1000);
             }
           }
           // 3. أمر مدة التشغيل
           else if (body.includes("/up")) {
             const uptimeText = `⚙️ **مدة تشغيل البوت المستمرة:**\n⏱️ ${getUptime()}`;
-            await safeSendMessage(api, uptimeText, threadID);
+            await sendMessageSmart(api, uptimeText, threadID, 500);
           }
           // 4. أمر فحص جاهزية الأدمن
           else if (body.includes("!ألوكس") || body.includes("! ألوكس")) {
-            if (checkAdmin) {
-              const replyText = `👑𝐀𝐥𝐨𝐱'𝐬 𝐵𝑂َ𝑇 𝐢𝐬 𝐨𝐧👑\n🔵𝗬𝗼𝘂 𝘄𝗮𝗻𝘁 𝘁𝗼 𝘀𝘁𝗮𝗿𝘁?`;
-              await safeSendMessage(api, replyText, threadID);
-            }
+            const replyText = `👑𝐀𝐥𝐨𝐱'𝐬 𝐵𝑂َ𝑇 𝐢𝐬 𝐨𝐧👑\n🔵𝗬𝗼𝘂 𝘄𝗮𝗻𝘁 𝘁𝗼 𝘀𝘁𝗮𝗿𝘁?`;
+            await sendMessageSmart(api, replyText, threadID, 1000);
           }
           // 5. أمر التفاعل العادي
           else if (body.includes("! الوكس") || body.includes("!الوكس")) {
-            if (checkAdmin) {
-              await safeSendMessage(api, "انا هنا !", threadID);
-            } else {
-              await safeSendMessage(api, "ڪ│😂⇦𖤛🧞‍♂️┋ـسـفـك", threadID);
-            }
+            await sendMessageSmart(api, "انا هنا !", threadID, 500);
           }
         }
       } catch (e) {
