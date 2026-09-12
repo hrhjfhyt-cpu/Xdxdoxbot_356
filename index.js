@@ -28,7 +28,7 @@ const appStateFile = path.join(__dirname, "appstate.json");
 const woxConfigFile = path.join(__dirname, "wox_config.json");
 const woxStateFile = path.join(__dirname, "wox_state.json");
 
-const DEFAULT_WOX_TEXT = `𝐀𝐋𝐎҈𝐗 𝒯𝐇𝐄 𝐊𝐈⃟𝐍𝐆 𝐈𝐒 𝐏𝐋𝐀𝐘𝐈𝐍𝐆 𝐖𝐈⏤͟͟͞͞𝐓𝐇 𝐔𝐑 𝐌𝐎𝑴𒆜\n𝚂𝚌𝚊𝚛𝚢 𝚊𝚗𝚐𝚎𝚛 𝚖𝚘𝚍𝚎🔴𝑻𝒉𝒆 𝒏𝒊𝒈𝒉𝒕𝒎𝒂𝒓𝒆 𝒅𝒐𝒆𝒔𝒏'𝒕 𝒋𝒐𝒄𝒌⇲\n      \n                 〘𝗛𝗔𝗞𝗔𝗜 𝗢𝗙 𝗟𝗘𝗔?? Organisations𫞒𫞓💠〙\n\n💦◈𝑪᷿⃔⃜⊹༒⥤┆𝘿꙲┆👑٭☓▶┋🐍┋⊹༅💦◈𝑪᷿⃔⃜⊹༒⥤┆𝘿꙲┆👑٭☓▶┋🐍┋⊹༅\n\n⊰⊱༈⏤͟͟͞͞■𝘼𝐋⃢𝐎⃟乂 𒈔𖣘\n\n∫✺↳✺ ✓∫ ඞ↳↳ ⟬ ᒍ𐌵ᛇᛘ ᚱ𐌵ᚻ ᚣᏔᚣᚶ ᚶᛟ𐌵 ᛈᚣᚻ'ᛘ ᚱᛊᛇᚽᛇᛇᛘ ⟭ ☄️\n╼╼╼╼╼『𝘑𝘈𝘜𝘎𝘌𝘙𝘈𝘜𝘕𝘛 𝘐𝘚 𝑭ᖭᖫ𝑲𝑰𝑵𝑮 𝘎𝘙𝘌𝘈𝘛』╾╾╾╾╾\n\n▶ͲᎻ٭Ꭼ ՏͲᎡ⃢ϴ⃝ΝᏀᎬՏͲ ՏႮ⃢Ꭱ⃟𝑉Ꮖ⏤͟͟͞͞■𝑉ᎬՏ ┆🌬\n➫🩸𝐓𝐇𝐄 𝐄𝐍𝐃 →↗︎↘︎𖣘`;
+const DEFAULT_WOX_TEXT = `*𝐀𝐥𝐨𝐱'𝐬 𝐫𝐞𝐩𝐥𝐲 🫸🔵🫷*\n𖣫 ᗩᒪᒪ ᗪᗴᗰOᑎՏ𖣫\n➥𝕲𝙊𝙀𝙏𝙎  𝕺𝙁  𝕱𝘼𝘾𝘼𝘽𝙊𝙊𝙆\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𖥡┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅𖥡\n𝑡𝔥𝔢 𝔮𝔩𝔬𝔵 𝔮𝔩𝑤𝔮𝑦𝑠 𝑠𝑡𝔢𝑝𝑠 𝑜𝑛 𝑠𝑝𝑖𝑑𝑒𝑟𝑠 𝔮𝑛𝑑 𝑖𝔫𝔰𝔢𝔠𝑡𝑠 𝔩𝔦𝔨𝔢 𝔪𝔬𝑐𝑟𝔬𝑤𝔮𝑡.\n\n                           ↫🪫↬\n\n   ➥『𝐖𝐄 𝐀𝐑𝐄 𝐇𝐈𝐒𝐓𝐎𝐑𝐘』╮\n\n    ⌯        .ℙ𝕒𝕥𝕣𝕚𝕔𝕜.\n\n➥ 𝐀𝐋𝐎𝐗 🔥\n\n『༴̤☠︎︎⋆̤☯』⇣؍.َِ𝗧𝗛𝗘 𝗞𝗜𝗡𝗚⏤͟͟͞͞𝗔𝗟𝗢𝗫\n\n        ➥【𝕯𝐸𝑀ϴ𝑁𝔖】\n\n𝙇𝙀𝘼𝘿𝙀𝙍 𝙊𝙁 𝘼𝙇𝙇 𝙁𝘼𝘾𝙀𝘽𝙊𝙊𝙆 𒆙⌯𖠨𖠫𖠰𖠱𖠳\n\n⏤͟͟͞͞🫸⛩️🫷𝐀𝐒𝐓𝐑𝐎`;
 
 let logsHistory = [];
 function addLog(msg) {
@@ -40,16 +40,32 @@ function addLog(msg) {
 }
 
 // ===============================
-// 2. إدارة ملفات التهيئة والكوكيز
+// 2. إدارة ملفات التهيئة والكوكيز وإصلاح التنسيق
 // ===============================
 function getValidAppState() {
   if (!fs.existsSync(appStateFile)) return null;
   try {
-    const rawData = fs.readFileSync(appStateFile, "utf8");
+    const rawData = fs.readFileSync(appStateFile, "utf8").trim();
+    if (!rawData) return null;
     const parsed = JSON.parse(rawData);
+    
+    // التأكد من تهيئة الكوكيز بصيغة خالية من الأخطاء لمكتبة ws3-fca
     let cookies = Array.isArray(parsed) ? parsed : (parsed && parsed.appState ? parsed.appState : []);
-    return cookies.length ? cookies : null;
+    
+    // إصلاح المفاتيح للتأكد من مطابقتها للتنسيق المطلوب
+    cookies = cookies.map(c => ({
+      key: c.key || c.name,
+      value: c.value,
+      domain: c.domain || "facebook.com",
+      path: c.path || "/",
+      hostOnly: c.hostOnly ?? false,
+      creation: c.creation || new Date().toISOString(),
+      lastAccessed: c.lastAccessed || new Date().toISOString()
+    }));
+
+    return cookies.length > 0 ? cookies : null;
   } catch (e) {
+    addLog(`❌ خطأ في قراءة ملف appstate.json: ${e.message}`);
     return null;
   }
 }
@@ -89,22 +105,23 @@ let botStatus = "OFFLINE";
 let activeWoxThreads = new Map();
 let currentApi = null;
 
-// دالة مساعدة لإرسال الرسالة مع تفعيل مؤشر الكتابة (Typing Indicator) لبضع ثوانٍ
-function sendMessageWithTyping(api, messageText, threadID, durationMs = 3000) {
+function sendMessageWithTyping(api, messageText, threadID, durationMs = 2500) {
   return new Promise((resolve) => {
-    // تفعيل وضع "جاري الكتابة..."
-    api.sendTypingIndicator(threadID, (err) => {
-      setTimeout(() => {
-        // إيقاف مؤشر الكتابة وإرسال الرسالة
-        api.sendTypingIndicator(threadID, () => {});
-        api.sendMessage(messageText, threadID, (sendErr, messageInfo) => {
-          if (sendErr) {
-            addLog(`❌ خطأ إرسال لـ ${threadID}: ${sendErr.message || sendErr}`);
-          }
-          resolve(messageInfo);
-        });
-      }, durationMs);
-    });
+    try {
+      api.sendTypingIndicator(threadID, (err) => {
+        setTimeout(() => {
+          try { api.sendTypingIndicator(threadID, () => {}); } catch(e){}
+          api.sendMessage(messageText, threadID, (sendErr, messageInfo) => {
+            if (sendErr) {
+              addLog(`❌ خطأ إرسال لـ ${threadID}: ${sendErr.message || sendErr}`);
+            }
+            resolve(messageInfo);
+          });
+        }, durationMs);
+      });
+    } catch (e) {
+      api.sendMessage(messageText, threadID, () => resolve());
+    }
   });
 }
 
@@ -121,13 +138,14 @@ function startBotEngine() {
 
   const cookies = getValidAppState();
   if (!cookies) {
-    addLog("❌ ملف appstate.json غير موجود أو يحتوي تركيبة خاطئة.");
+    addLog("❌ ملف appstate.json غير موجود أو غير صالح.");
     botStatus = "OFFLINE";
     return;
   }
 
   addLog(`▶️ جاري تشغيل البوت...`);
 
+  // إرسال الكوكيز كـ Object يحتوي على appState لتفادي خطأ split
   login({ appState: cookies }, (loginErr, api) => {
     if (loginErr) {
       addLog(`❌ فشل تسجيل الدخول: ${loginErr.message || JSON.stringify(loginErr)}`);
@@ -138,12 +156,14 @@ function startBotEngine() {
     currentApi = api;
     botStatus = "ONLINE";
 
-    api.setOptions({
-      listenEvents: true,
-      selfListen: true,
-      autoMarkDelivery: false,
-      listenTyping: false
-    });
+    try {
+      api.setOptions({
+        listenEvents: true,
+        selfListen: true,
+        autoMarkDelivery: false,
+        listenTyping: false
+      });
+    } catch (e) {}
 
     addLog("✅ تم تشغيل البوت بنجاح ومستعد لاستقبال الأوامر!");
 
@@ -154,7 +174,7 @@ function startBotEngine() {
       const intervalId = setInterval(() => {
         const config = getWoxConfig();
         if (!config.enabled || botStatus !== "ONLINE") return;
-        sendMessageWithTyping(api, config.text, threadID, 2500);
+        sendMessageWithTyping(api, config.text, threadID, 2000);
       }, getWoxConfig().interval);
 
       activeWoxThreads.set(threadID, intervalId);
@@ -179,19 +199,16 @@ function startBotEngine() {
     // استعادة المحادثات النشطة السابقة
     savedThreads.forEach((tId) => startWoxLoop(tId));
 
-    // الاستماع للأحداث الرسائل والأوامر
+    // الاستماع للأحداث والرسائل
     api.listenMqtt(async (err, event) => {
       try {
-        if (err) return;
-        if (!event || !event.threadID) return;
+        if (err || !event || !event.threadID) return;
 
-        // ⚡ خروج عضو من المجموعة
         if (event.type === "event" && event.logMessageType === "log:unsubscribe") {
-          await sendMessageWithTyping(api, "غادر المهرج المجموعة", event.threadID, 2000);
+          await sendMessageWithTyping(api, "غادر المهرج المجموعة", event.threadID, 1500);
           return;
         }
 
-        // ⚡ معالجة الرسائل والأوامر النصية
         if (event.type === "message" || event.type === "message_reply") {
           if (!event.body || typeof event.body !== "string") return;
 
@@ -202,42 +219,35 @@ function startBotEngine() {
 
           addLog(`📩 [رسالة] من ${senderID} في ${threadID}: ${body}`);
 
-          // أمر: الوكس قل لهم الصراحة
           if (body === "! الوكس قل لهم الصراحة" && isAdmin) {
             stopWoxLoop(threadID);
-            await sendMessageWithTyping(api, "🔥🔷𝐓𝐇𝐄 𝐊𝐈𝐍𝐆 𝐀𝐋𝐎𝐗 𝐈𝐒 𝐇𝐄𝐑𝐄 🌪❌", threadID, 3000);
+            await sendMessageWithTyping(api, "🔥🔷𝐓𝐇𝐄 𝐊𝐈𝐍𝐆 𝐀𝐋𝐎𝐗 𝐈𝐒 𝐇𝐄𝐑𝐄 🌪❌", threadID, 2500);
             startWoxLoop(threadID);
           }
-
-          // أمر: الوكس ايقاف
           else if ((body === "! الوكس ايقاف" || body === "!الوكس ايقاف" || body === "/الوكس ايقاف") && isAdmin) {
             if (activeWoxThreads.has(threadID)) {
               stopWoxLoop(threadID);
-              await sendMessageWithTyping(api, "𝙏𝙃𝙀 𝘼𝙇𝙊𝙓 𝙈𝙊𝘿𝙀 𝙄𝙎 𝙎𝙏𝙊𝙋𝙋𝙀𝘿 ❌", threadID, 2500);
+              await sendMessageWithTyping(api, "𝙏𝙃𝙀 𝘼𝙇𝙊𝙓 𝙈𝙊𝘿𝙀 𝙄𝙎 𝙎𝙏𝙊𝙋𝙋𝙀𝘿 ❌", threadID, 2000);
             } else {
-              await sendMessageWithTyping(api, "متت اختفو 😂", threadID, 2000);
+              await sendMessageWithTyping(api, "متت اختفو 😂", threadID, 1500);
             }
           }
-
-          // أمر: !ألوكس
           else if (body === "!ألوكس" || body === "! ألوكس") {
             if (isAdmin) {
               const replyText = `👑𝐀𝐥𝐨𝐱'𝐬 𝐵𝑂َ𝑇 𝐢𝐬 𝐨𝐧👑\nꪱׁׁׁׅׅׅܻ⨍ ɑׁׅ݊ꪀᨮׁׅ֮ᨵׁׅׅ݊ꪀꫀׁׅܻ݊ ժׁׅ݊ɑׁׅꭈׁׅꫀׁׅܻׅ݊꯱ tׁׅᨵׁׅׅ hׁׅ֮ɑׁׅᥣׁׅ֪ᥣׁׅ֪ꫀׁׅܻ݊݊ꪀᧁׁꫀׁׅܻ݊ hׁׅ֮ꪱׁׁׁׅׅׅꩇׁׅ֪݊ , hׁׁׅׅ֮֮ꫀׁׅܻ݊'꯱ ᧁׁᨵׁׅׅ݊ꪀ݊ꪀɑׁׅ υׁׅׅ꯱ꫀׁׅܻ݊ :\nٱﺂݪو໑ڪَِكٍْسہًٍۦـس قݪ ݪهَـْہ‌‍َِٰمَِـۥـِمٛ ٱﺂݪصࢪٱﺂحٍَـحهَـْہ‌‍َِٰ!\n🔵𝗬𝗼𝘂 𝘄𝗮𝗻𝘁 𝘁𝗼 𝘀𝘁𝗮𝗿𝘁?`;
-              await sendMessageWithTyping(api, replyText, threadID, 3000);
+              await sendMessageWithTyping(api, replyText, threadID, 2500);
             }
           }
-
-          // أمر: ! الوكس (تحقق)
           else if (body === "! الوكس" || body === "!الوكس") {
             if (isAdmin) {
-              await sendMessageWithTyping(api, "انا هنا !", threadID, 2000);
+              await sendMessageWithTyping(api, "انا هنا !", threadID, 1500);
             } else {
-              await sendMessageWithTyping(api, "ڪ│😂⇦𖤛🧞‍♂️┋ـسـ╾༺☄️༻╿ـمـ︻︽『🐉🈴』𒆙𒋨🔥🦅𒁂فـڪ", threadID, 2500);
+              await sendMessageWithTyping(api, "ڪ│😂⇦𖤛🧞‍♂️┋ـسـ╾༺☄️༻╿ـمـ︻︽『🐉🈴』𒆙𒋨🔥🦅𒁂فـڪ", threadID, 2000);
             }
           }
         }
       } catch (e) {
-        addLog(`❌ [Catch Error]: ${e.message}`);
+        addLog(`❌ [Error in listenMqtt]: ${e.message}`);
       }
     });
   });
@@ -290,7 +300,7 @@ app.get("/", (req, res) => {
     </div>
 
     <div class="card">
-      <h2>🍪 إدارة الجلسة (appstate.json)</h2>
+      <h2>🍪 إدارة الكوكيز (appstate.json)</h2>
       <form action="/save-appstate" method="POST">
         <label>انسخ كود JSON الخاص بالكوكيز هنا:</label>
         <textarea name="appState" rows="8">${currentAppState}</textarea>
@@ -334,7 +344,6 @@ app.get("/", (req, res) => {
   res.send(html);
 });
 
-// المسارات التشغيلية للواجهة
 app.post("/bot-control", (req, res) => {
   const { action } = req.body;
   if (action === "start") startBotEngine();
@@ -369,7 +378,6 @@ app.post("/save-wox", (req, res) => {
   res.redirect("/");
 });
 
-// إطلاق خادم الويب والبوت
 app.listen(PORT, () => {
   addLog(`🌐 يعمل خادم الداشبورد على المنفذ (Port): ${PORT}`);
   startBotEngine();
