@@ -70,7 +70,7 @@ login({ appState: loadAppState() }, (err, api) => {
   const woxIntervals = new Map();
   
   // ⚠️ تأكد من هذا الـ ID 
-  const adminID = "61593590627474"; 
+  const adminID = "61593997454796"; 
 
   function startWox(threadID) {
     if (woxIntervals.has(threadID)) return;
