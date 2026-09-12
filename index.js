@@ -1,18 +1,21 @@
-const login = require("fca-unofficial");
+const login = require("fca-unofficial"); // أو اسم المكتبة التي تستخدمها
 const fs = require("fs");
 
 // ===============================
-// Login / AppState Parsing
+// Login / AppState Parsing & Saving
 // ===============================
 
 function loadAppState() {
   try {
+    if (!fs.existsSync("./appstate.json")) {
+      throw new Error("ملف appstate.json غير موجود.");
+    }
+
     const raw = fs.readFileSync("./appstate.json", "utf8");
     const parsed = JSON.parse(raw);
 
     let appStateArray = [];
 
-    // التحقق والتأكد من تحويل البيانات إلى مصفوفة صالحة لمكتبة ws3-fca
     if (Array.isArray(parsed)) {
       appStateArray = parsed;
     } else if (parsed && typeof parsed === "object" && Array.isArray(parsed.appState)) {
@@ -22,8 +25,6 @@ function loadAppState() {
     }
 
     console.log(`🍪 Loaded ${appStateArray.length} cookies.`);
-    
-    // إرجاع المصفوفة مباشرة دون تحويلها إلى النص 'key=value;'
     return appStateArray;
 
   } catch (e) {
@@ -32,10 +33,18 @@ function loadAppState() {
   }
 }
 
-// إرسال appState كمصفوفة كوكيز رسمية
-const loginOptions = {
-  appState: loadAppState()
-};
+// دالة تجديد وحفظ الكوكيز في الملف
+function saveAppState(api) {
+  try {
+    if (typeof api.getAppState === "function") {
+      const newAppState = api.getAppState();
+      fs.writeFileSync("./appstate.json", JSON.stringify(newAppState, null, 2), "utf8");
+      console.log("🔄 [Session Saver] تم تجديد وحفظ الكوكيز بنجاح في appstate.json");
+    }
+  } catch (e) {
+    console.error("❌ فشل تجديد الكوكيز تلقائياً:", e.message);
+  }
+}
 
 // ===============================
 // Wox state & Config
@@ -139,15 +148,16 @@ function removeWoxThread(threadID) {
 // Login Execution
 // ===============================
 
-login(loginOptions, (err, api) => {
+login({ appState: loadAppState() }, (err, api) => {
   if (err) {
     return console.error("❌ Login error:", err);
   }
 
   // ===============================
-  // Session Guard
+  // Session Guard & Automatic Renew
   // ===============================
 
+  // 1. استخدام sessionGuard إذا كانت مدعومة بالمكتبة
   try {
     if (typeof api.sessionGuard === "function") {
       api.sessionGuard("./appstate.json", {
@@ -160,6 +170,12 @@ login(loginOptions, (err, api) => {
     console.error("❌ SessionGuard error:", e.message);
   }
 
+  // 2. تجديد الكوكيز وتحديث الملف كل 10 دقائق تلقائياً لحماية الجلسة
+  setInterval(() => {
+    saveAppState(api);
+  }, 10 * 60 * 1000);
+
+  // ضبط إعدادات الاستماع
   api.setOptions({
     listenEvents: true,
     selfListen: true,
@@ -167,33 +183,7 @@ login(loginOptions, (err, api) => {
     listenTyping: false
   });
 
-  console.log("✅ Bot is running with E2EE library...");
-
-  // ===============================
-  // Online / Offline
-  // ===============================
-
-  let isOnline = true;
-
-  function schedulePresenceCycle() {
-    const activeDuration = Math.floor(Math.random() * (7200000 - 3600000 + 1)) + 3600000;
-
-    setTimeout(() => {
-      isOnline = false;
-      api.setOptions({ online: false });
-      console.log("🌙 Bot is now offline/inactive for 15 minutes.");
-
-      setTimeout(() => {
-        isOnline = true;
-        api.setOptions({ online: true });
-        console.log("☀️ Bot is back online.");
-        schedulePresenceCycle();
-      }, 900000);
-    }, activeDuration);
-  }
-
-  api.setOptions({ online: true });
-  schedulePresenceCycle();
+  console.log("✅ Bot is running with Session Refresh active...");
 
   // ===============================
   // Send with typing
@@ -231,7 +221,7 @@ login(loginOptions, (err, api) => {
       try {
         await api.sendMessage(currentConfig.text, threadID);
       } catch (e) {
-        // تجاهل أخطاء الإرسال
+        // تجاهل أخطاء الإرسال المستمرة
       }
     }, config.interval);
 
@@ -306,14 +296,14 @@ login(loginOptions, (err, api) => {
   // ===============================
 
   api.listenMqtt(async (err, event) => {
+    if (err) {
+      if (err.message && err.message.includes("E2EE")) return;
+      return console.error("❌ Mqtt error:", err);
+    }
+
+    if (!event || !event.threadID || !event.senderID) return;
+
     try {
-      if (err) {
-        if (err.message && err.message.includes("E2EE")) return;
-        return console.error("❌ Mqtt error:", err);
-      }
-
-      if (!event || !event.threadID || !event.senderID) return;
-
       if (event.type === "event" && event.logMessageType === "log:unsubscribe") {
         return sendMessageWithTyping(" غادر المهرج المجموعة", event.threadID);
       }
@@ -322,49 +312,44 @@ login(loginOptions, (err, api) => {
         if (!event.body || typeof event.body !== "string") return;
 
         const body = event.body.trim();
+        const text = body.toLowerCase();
+        const isAdmin = event.senderID === adminID;
 
-        if (body === "/الوكس تشغيل" && event.senderID === adminID) {
-          if (woxIntervals.has(event.threadID)) {
-            clearInterval(woxIntervals.get(event.threadID));
-            woxIntervals.delete(event.threadID);
-          }
+        if (body === "/الوكس تشغيل" && isAdmin) {
+          stopWox(event.threadID);
           await sendMessageWithTyping("🔥🔷𝐓𝐇𝐄 𝐊𝐈𝐍𝐆 𝐀𝐋𝐎𝐗 𝐈𝐒 𝐇𝐄𝐑𝐄 🌪❌", event.threadID);
           startWox(event.threadID, false);
+          return;
         }
 
-        if (body === "! الوكس ايقاف" && event.senderID === adminID) {
+        if (body === "! الوكس ايقاف" && isAdmin) {
           if (woxIntervals.has(event.threadID)) {
-            clearInterval(woxIntervals.get(event.threadID));
-            woxIntervals.delete(event.threadID);
-            removeWoxThread(event.threadID);
+            stopWox(event.threadID);
             await sendMessageWithTyping(" 𝙏𝙃𝙀 𝘼𝙇𝙊𝙙 𝙈𝙊𝘿𝙀 𝙄𝙎 𝙎𝙏𝙊𝙋𝙋𝙀𝘿 ❌", event.threadID);
           } else {
             removeWoxThread(event.threadID);
             await sendMessageWithTyping(" متت اختفو 😂", event.threadID);
           }
+          return;
         }
 
-        const text = event.body.toLowerCase().trim();
-        const isAdmin = event.senderID === adminID;
-
-        if (isAdmin) {
-          if (text === "!ألوكس") {
-            await sendMessageWithTyping(
-              `👑𝐀𝐥𝐨x'𝐬 𝐵𝑂َ𝑇 𝐢𝐬 𝐨𝐧👑\nꪱׁׁׁׅׅׅܻ⨍ ɑׁׅ݊ꪀᨮׁׅ֮ᨵׁׅׅ݊ꪀꫀׁׅܻ݊ ժׁׅ݊ɑׁׅꭈׁׅꫀׁׅܻׅ݊꯱ tׁׅᨵׁׅׅ݊ ᝯׁ֒hׁׅ֮ɑׁׅᥣׁׅ֪ᥣׁׅ֪ꫀׁׅܻ݊݊ꪀᧁׁꫀׁׅܻ݊ hׁׅ֮ꪱׁׁׁׅׅׅꩇׁׅ֪݊ , hׁׁׅׅ֮֮ꫀׁׅܻ݊'꯱ ᧁׁᨵׁׅׅ݊ꪀ݊ꪀɑׁׅ υׁׅׅ꯱ꫀׁׅܻ݊ :\nٱﺂݪو໑ڪَِكٍْسہًٍۦـس قݪ ݪهَـْہ‌‍َِٰمَِـۥـِمٛ ٱﺂݪصࢪٱﺂحٍَـحهَـْہ‌‍َِٰ!\n🔵𝗬𝗼𝘂 𝘄𝗮𝗻𝘁 𝘁𝗼 𝘀𝘁𝗮𝗿𝘁?`,
-              event.threadID
-            );
-          }
+        if (text === "!ألوكس" && isAdmin) {
+          await sendMessageWithTyping(
+            `👑𝐀𝐥𝐨x'𝐬 𝐵𝑂َ𝑇 𝐢𝐬 𝐨𝐧👑\nꪱׁׁׁׅׅׅܻ⨍ ɑׁׅ݊ꪀᨮׁׅ֮ᨵׁׅׅ݊ꪀꫀׁׅܻ݊ ժׁׅ݊ɑׁׅꭈׁׅꫀׁׅܻׅ݊꯱ tׁׅᨵׁׅׅ݊ ᝯׁ֒hׁׅ֮ɑׁׅᥣׁׅ֪ᥣׁׅ֪ꫀׁׅܻ݊݊ꪀᧁׁꫀׁׅܻ݊ hׁׅ֮ꪱׁׁׁׅׅׅꩇׁׅ֪݊ , hׁׁׅׅ֮֮ꫀׁׅܻ݊'꯱ ᧁׁᨵׁׅׅ݊ꪀ݊ꪀɑׁׅ υׁׅׅ꯱ꫀׁׅܻ݊ :\nٱﺂݪو໑ڪَِكٍْسہًٍۦـس قݪ ݪهَـْہ‌‍َِٰمَِـۥـِمٛ ٱﺂݪصࢪٱﺂحٍَـحهَـْہ‌‍َِٰ!\n🔵𝗬𝗼𝘂 𝘄𝗮𝗻𝘁 𝘁𝗼 𝘀𝘁𝗮𝗿𝘁?`,
+            event.threadID
+          );
+          return;
         }
 
         if (body === "! الوكس") {
-          if (event.senderID === adminID) {
+          if (isAdmin) {
             return sendMessageWithTyping("انا هنا ! ", event.threadID);
           }
           sendMessageWithTyping("ڪ│😂⇦𖤛🧞‍♂️┋ـسـ╾༺☄️༻╿ـمـ︻︽『🐉』𒆙𒋨🔥 🦅𒁂𒁎ـڪ ", event.threadID);
         }
       }
     } catch (e) {
-      console.error("❌ Error caught:", e.message);
+      console.error("❌ Error processing event:", e.message);
     }
   });
 });
