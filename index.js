@@ -1,71 +1,71 @@
 const express = require("express");
-const login = require("ws3-fca");
+const { login } = require("ws3-fca");
 const fs = require("fs");
 const path = require("path");
 
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // ===============================
-// 1. الإعدادات والمتغيرات الأساسية
+// 1. الإعدادات وقائمة الأدمن
 // ===============================
-const ADMIN_IDS = ["61593590627474"]; // قائمة الآدمينات المصرح لهم
-const APPSTATE_PATH = path.join(__dirname, "appstate.json");
+const ADMINS = new Set(["61593590627474", "61593997454796"]);
+function isAdmin(senderID) {
+  return ADMINS.has(String(senderID).trim());
+}
 
+const appStateFile = path.join(__dirname, "appstate.json");
+const woxConfigFile = path.join(__dirname, "wox_config.json");
+
+const DEFAULT_WOX_TEXT = `*𝐀𝐥𝐨𝐱'𝐬 𝐫𝐞𝐩𝐥𝐲 🫸🔵🫷*\n𖣫 ᗩᒪᒪ ᗪᗴᗰOᑎՏ𖣫\n➥𝕲𝙊𝙀𝙏𝙎  𝕺𝙁  𝕱𝘼𝘾𝘼𝘽𝙊𝙊𝙆\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋\n𖥡┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅𖥡\n𝑡𝔥𝔢 𝔮𝔩𝔬𝔵 𝔮𝔩𝑤𝔮𝑦𝑠 𝑠𝑡𝔢𝑝𝑠 𝑜𝑛 𝑠𝑝𝑖𝑑𝑒𝑟𝑠 𝔮𝑛𝑑 𝑖𝔫𝔰𝔢𝔠𝑡𝔰 𝔩𝔦𝔨𝔢 𝔪𝑜𝑐𝑟𝑜𝑤𝔮𝑡.\n\n                           ↫🪫↬\n\n   ➥『𝐖𝐄 𝐀𝐑𝐄 𝐇𝐈𝐒𝐓𝐎𝐑𝐘』╮\n\n    ⌯        .ℙ𝕒𝕥𝕣𝕚𝕔𝕜.\n\n➥ 𝐀𝐋𝐎𝐗 🔥\n\n『༴̤☠︎︎⋆̤☯』⇣؍.َِ𝗧𝗛𝗘 𝗞𝗜𝗡𝗚⏤͟͟͞͞𝗔𝗟𝗢𝗫\n\n        ➥【𝕯𝐸𝑀ϴ𝑁𝔖】\n\n𝙇𝙀𝘼𝘿𝙀𝙍 𝙊𝙁 𝘼𝙇𝙇 𝙁𝘼𝘾𝙀𝘽𝙊𝙊𝙆 𒆙⌯𖠨𖠫𖠰𖠱𖠳\n\n⏤͟͟͞͞🫸⛩️🫷𝐀𝐒𝐓𝐑𝐎`;
+
+let logsHistory = [];
+function addLog(msg) {
+  const timestamp = new Date().toISOString();
+  const formatted = `[${timestamp}] ${msg}`;
+  console.log(formatted);
+  logsHistory.push(formatted);
+  if (logsHistory.length > 300) logsHistory.shift();
+}
+
+// ===============================
+// 2. قراءة الكوكيز والإعدادات الموثوقة
+// ===============================
+function getValidAppState() {
+  if (!fs.existsSync(appStateFile)) return null;
+  try {
+    const rawData = fs.readFileSync(appStateFile, "utf8").trim();
+    if (!rawData) return null;
+    return JSON.parse(rawData);
+  } catch (e) {
+    addLog(`❌ خطأ في قراءة ملف appstate.json: ${e.message}`);
+    return null;
+  }
+}
+
+function getWoxConfig() {
+  try {
+    if (!fs.existsSync(woxConfigFile)) {
+      const def = { enabled: true, interval: 15000, text: DEFAULT_WOX_TEXT };
+      fs.writeFileSync(woxConfigFile, JSON.stringify(def, null, 2));
+      return def;
+    }
+    return JSON.parse(fs.readFileSync(woxConfigFile, "utf8"));
+  } catch (e) {
+    return { enabled: true, interval: 15000, text: DEFAULT_WOX_TEXT };
+  }
+}
+
+// ===============================
+// 3. المحرك ودوال الإرسال المضمونة
+// ===============================
 let botStatus = "OFFLINE";
 let activeWoxThreads = new Map();
 let currentApi = null;
 
-// نص الوكس المعتمد
-let woxSettings = {
-  enabled: false,
-  interval: 15000,
-  text: `*𝐀𝐥𝐨𝐱'𝐬 𝐫𝐞𝐩𝐥𝐲 🫸🔵🫷*
-𖣫 ᗩᒪᒪ ᗪᗴᗰOᑎՏ𖣫
-➥𝕲𝙊𝙀𝙏𝙎  𝕺𝙁  𝕱𝘼𝘾𝘼𝘽𝙊𝙊𝙆
-𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋
-𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋
-𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋
-𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋
-𒈒⬅✰🌉⟿⛓⟿ 𝐴𝐿𒈒⬅✰🌉⟿⛓⟿𝑂𝑋
-𖥡┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅𖥡
-𝑡𝔥𝔢 𝔮𝔩𝔬𝔵 𝔮𝔩𝑤𝔮𝑦𝑠 𝑠𝑡𝔢𝑝𝑠 𝑜𝑛 𝑠𝑝𝑖𝑑𝑒𝑟𝑠 𝔮𝑛𝑑 𝑖𝔫𝔰𝔢𝔠𝑡𝑠 𝔩𝔦𝔨𝔢 𝔪𝔬𝑐𝑟𝔬𝑤𝔮𝑡.
-
-                           ↫🪫↬
-
-   ➥『𝐖𝐄 𝐀𝐑𝐄 𝐇𝐈𝐒𝐓𝐎𝐑𝐘』╮
-
-    ⌯        .ℙ𝕒𝕥𝕣𝕚𝕔𝕜.
-
-➥ 𝐀𝐋𝐎𝐗 🔥
-
-『༴̤☠︎︎⋆̤☯』⇣؍.َِ𝗧𝗛𝗘 𝗞𝗜𝗡𝗚⏤͟͟͞͞𝗔𝗟𝗢𝗫
-
-        ➥【𝕯𝐸𝑀ϴ𝑁𝔖】
-
-𝙇𝙀𝘼𝘿𝙀𝙍 𝙊𝙁 𝘼𝙇𝙇 𝙁𝘼𝘾𝙀𝘽𝙊𝙊𝙆 𒆙⌯𖠨𖠫𖠰𖠱𖠳
-
-⏤͟͟͞͞🫸⛩️🫷𝐀𝐒𝐓𝐑𝐎`
-};
-
-// ===============================
-// 2. نظام السجلات (Logs)
-// ===============================
-let logs = [];
-function addLog(message) {
-  const time = new Date().toISOString();
-  const logLine = `[${time}] ${message}`;
-  console.log(logLine);
-  logs.push(logLine);
-  if (logs.length > 200) logs.shift(); // الاحتفاظ بأحدث 200 سطر
-}
-
-// ===============================
-// 3. دالة الإرسال الذكية (مضمونة وسريعة)
-// ===============================
 async function sendMessageSmart(api, messageText, threadID, delayMs = 300) {
   if (delayMs > 0) {
     await new Promise((r) => setTimeout(r, delayMs));
@@ -88,256 +88,245 @@ async function sendMessageSmart(api, messageText, threadID, delayMs = 300) {
   });
 }
 
-// ===============================
-// 4. إدارة تشغيل وإيقاف الوكس التلقائي
-// ===============================
 function stopWoxLoop(threadID) {
   if (activeWoxThreads.has(threadID)) {
     clearInterval(activeWoxThreads.get(threadID));
     activeWoxThreads.delete(threadID);
-    addLog(`🛑 تم إيقاف وكس التلقائي في المحادثة: ${threadID}`);
+    addLog(`🛑 تم إيقاف الوكس التلقائي في: ${threadID}`);
     return true;
   }
   return false;
 }
 
 function startWoxLoop(api, threadID) {
-  stopWoxLoop(threadID); // إلغاء أي مؤقت سابق لضمان عدم التكرار
+  stopWoxLoop(threadID);
 
-  addLog(`🚀 بداية تشغيل وكس التلقائي في المحادثة: ${threadID}`);
-  
-  // إرسال أول رسالة فوراً عند التشغيل
-  sendMessageSmart(api, woxSettings.text, threadID);
+  const config = getWoxConfig();
+  addLog(`🚀 بداية تشغيل الوكس في المحادثة: ${threadID}`);
+  sendMessageSmart(api, config.text, threadID, 300);
 
   const timer = setInterval(() => {
     if (botStatus !== "ONLINE") {
       stopWoxLoop(threadID);
       return;
     }
-    sendMessageSmart(api, woxSettings.text, threadID);
-  }, woxSettings.interval);
+    const cfg = getWoxConfig();
+    sendMessageSmart(api, cfg.text, threadID, 300);
+  }, config.interval);
 
   activeWoxThreads.set(threadID, timer);
 }
 
-// ===============================
-// 5. محرك تشغيل البوت المباشر
-// ===============================
-function startBot() {
-  if (!fs.existsSync(APPSTATE_PATH)) {
-    addLog("⚠️ لم يتم العثور على ملف appstate.json! الرجاء إضافة الكوكيز أولاً.");
+function stopBotEngine() {
+  activeWoxThreads.forEach((timer) => clearInterval(timer));
+  activeWoxThreads.clear();
+  currentApi = null;
+  botStatus = "OFFLINE";
+  addLog("⛔ تم إيقاف البوت بشكل كامل.");
+}
+
+function startBotEngine() {
+  if (botStatus === "ONLINE") return;
+
+  const appStateParsed = getValidAppState();
+  if (!appStateParsed) {
+    addLog("❌ ملف appstate.json غير موجود أو كود JSON غير صالح.");
     botStatus = "OFFLINE";
     return;
   }
 
-  try {
-    const appState = JSON.parse(fs.readFileSync(APPSTATE_PATH, "utf8"));
-    addLog("🔑 جاري تسجيل الدخول باستخدام الكوكيز...");
+  addLog(`▶️ جاري تسجيل الدخول بالكريدينشالز...`);
 
-    login({ appState }, (err, api) => {
-      if (err) {
-        addLog(`❌ فشل تسجيل الدخول: ${err.errorDescription || err.message || JSON.stringify(err)}`);
-        botStatus = "OFFLINE";
-        return;
-      }
+  login({ appState: appStateParsed }, (loginErr, api) => {
+    if (loginErr) {
+      addLog(`❌ فشل تسجيل الدخول: ${loginErr.error || loginErr.message || JSON.stringify(loginErr)}`);
+      botStatus = "OFFLINE";
+      return;
+    }
 
-      currentApi = api;
-      botStatus = "ONLINE";
-      addLog("✅ تم تشغيل البوت بنجاح ومستعد لاستقبال الأوامر!");
+    currentApi = api;
+    botStatus = "ONLINE";
 
-      // إعدادات الممر والاستماع
+    try {
       api.setOptions({
         listenEvents: true,
         selfListen: false,
-        logLevel: "silent"
+        autoMarkDelivery: false,
+        listenTyping: false
       });
+    } catch (e) {}
 
-      api.listenMqtt((err, event) => {
+    addLog("✅ تم تشغيل البوت بنجاح ومستعد لاستقبال الأوامر!");
+
+    api.listenMqtt((err, event) => {
+      try {
         if (err) {
-          addLog(`❌ خطأ في الاستماع الأحداث: ${err.message || err}`);
+          addLog(`❌ MQTT ERROR: ${JSON.stringify(err)}`);
           return;
         }
 
-        // تسجيل الأحداث الواردة
+        if (!event) return;
+
+        addLog(`📡 [EVENT RECEIVED] Type: ${event.type} | SenderID: ${event.senderID} | Body: "${event.body || ''}"`);
+
         if (event.type === "message" || event.type === "message_reply") {
-          const senderID = event.senderID;
-          const threadID = event.threadID;
-          const body = (event.body || "").trim();
+          const body = String(event.body || "").trim();
+          const senderID = String(event.senderID || "").trim();
+          const threadID = String(event.threadID || "").trim();
 
-          addLog(`📡 [EVENT RECEIVED] Type: ${event.type} | SenderID: ${senderID} | Body: "${body}"`);
+          if (!body) return;
 
-          // التحقق من صلاحيات الأدمن
-          if (!ADMIN_IDS.includes(senderID)) {
+          if (!isAdmin(senderID)) {
             addLog(`⚠️ تم تجاهل أمر من حساب غير مسجل كأدمن (ID الحالي: ${senderID})`);
             return;
           }
 
           addLog(`📩 [أمر أدمن مقبول] من ID: (${senderID}) | النص: "${body}"`);
 
-          // معالجة الأوامر
-          if (body === "/الوكس تشغيل" || body === "الوكس تشغيل") {
+          if (body.includes("/الوكس تشغيل") || body.includes("الوكس تشغيل")) {
             startWoxLoop(api, threadID);
-            sendMessageSmart(api, "✅ تم تفعيل الوكس التلقائي بنجاح!", threadID);
-          } else if (body === "/الوكس ايقاف" || body === "/الوكس إيقاف" || body === "الوكس ايقاف") {
+            sendMessageSmart(api, "🔥🔷𝐓𝐇𝐄 𝐊𝐈𝐍𝐆 𝐀𝐋𝐎𝐗 𝐈𝐒 𝐇𝐄𝐑𝐄 🌪❌", threadID, 500);
+          } else if (body.includes("/stop") || body.includes("الوكس ايقاف") || body.includes("الوكس إيقاف")) {
             if (stopWoxLoop(threadID)) {
-              sendMessageSmart(api, "🛑 تم إيقاف الوكس التلقائي في هذه المحادثة.", threadID);
+              sendMessageSmart(api, "𝙏𝙃𝙀 𝘼𝙇𝙊𝙓 𝙈𝙊𝘿𝙀 𝙄𝙎 𝙎𝙏𝙊𝙋𝙋𝙀𝘿 ❌", threadID, 500);
             } else {
-              sendMessageSmart(api, "⚠️ الوكس غير مفعل حالياً في هذه المحادثة.", threadID);
+              sendMessageSmart(api, "متت اختفو 😂", threadID, 500);
             }
           }
         }
-      });
+      } catch (e) {
+        addLog(`❌ [Error in listenMqtt]: ${e.message}`);
+      }
     });
-  } catch (e) {
-    addLog(`❌ خطأ في قراءة ملف الكوكيز: ${e.message}`);
-    botStatus = "OFFLINE";
-  }
-}
-
-function stopBot() {
-  // إيقاف جميع حلقات الوكس
-  for (const [threadID, timer] of activeWoxThreads.entries()) {
-    clearInterval(timer);
-  }
-  activeWoxThreads.clear();
-
-  if (currentApi) {
-    try {
-      currentApi.logout();
-    } catch (e) {}
-    currentApi = null;
-  }
-  botStatus = "OFFLINE";
-  addLog("⛔ تم إيقاف البوت وجميع المهام التلقائية.");
+  });
 }
 
 // ===============================
-// 6. لوحة التحكم والداشبورد (Express Dashboard)
+// 4. خادم الداشبورد
 // ===============================
 app.get("/", (req, res) => {
-  let appStateText = "";
-  if (fs.existsSync(APPSTATE_PATH)) {
-    appStateText = fs.readFileSync(APPSTATE_PATH, "utf8");
-  }
+  const currentAppState = fs.existsSync(appStateFile) ? fs.readFileSync(appStateFile, "utf8") : "[]";
+  const woxConfig = getWoxConfig();
 
   const html = `
-  <!DOCTYPE html>
-  <html lang="ar" dir="rtl">
-  <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>👑 Alox Dashboard & Control Unit</title>
-    <style>
-      body { font-family: system-ui, -apple-system, sans-serif; background-color: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
-      .container { max-width: 900px; margin: 0 auto; }
-      .card { background: #1e293b; border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid #334155; }
-      h1, h2 { margin-top: 0; color: #38bdf8; }
-      .status-online { color: #22c55e; font-weight: bold; }
-      .status-offline { color: #ef4444; font-weight: bold; }
-      .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; margin-left: 10px; text-decoration: none; display: inline-block; }
-      .btn-start { background-color: #22c55e; color: white; }
-      .btn-stop { background-color: #ef4444; color: white; }
-      .btn-save { background-color: #3b82f6; color: white; margin-top: 10px; }
-      textarea, input[type="number"] { width: 100%; background: #0f172a; border: 1px solid #334155; color: #f8fafc; padding: 10px; border-radius: 6px; box-sizing: border-box; }
-      textarea { height: 150px; font-family: monospace; }
-      .logs { background: #000; color: #00ff66; padding: 15px; border-radius: 8px; font-family: monospace; height: 300px; overflow-y: scroll; white-space: pre-wrap; font-size: 13px; }
-    </style>
-  </head>
-  <body>
-    <div class="container">
-      <h1>👑 Alox Dashboard & Control Unit</h1>
-      
-      <!-- حالة البوت -->
-      <div class="card">
-        <h2>حالة البوت العامة</h2>
-        <p>الحالة الحالية: <span class="${botStatus === "ONLINE" ? "status-online" : "status-offline"}">${botStatus === "ONLINE" ? "🟢 ONLINE" : "🔴 OFFLINE"}</span></p>
-        <form action="/api/control" method="POST" style="display:inline;">
-          <input type="hidden" name="action" value="start">
-          <button class="btn btn-start" type="submit">▶️ تشغيل البوت (Start)</button>
-        </form>
-        <form action="/api/control" method="POST" style="display:inline;">
-          <input type="hidden" name="action" value="stop">
-          <button class="btn btn-stop" type="submit">⛔ إيقاف البوت (Stop)</button>
-        </form>
-      </div>
-
-      <!-- إدارة الكوكيز -->
-      <div class="card">
-        <h2>🍪 إدارة الكوكيز (appstate.json)</h2>
-        <form action="/api/save-cookies" method="POST">
-          <label>انسخ كود JSON الخاص بالكوكيز هنا:</label><br><br>
-          <textarea name="appstate" placeholder="[...]">${appStateText}</textarea><br>
-          <button class="btn btn-save" type="submit">💾 حفظ الكوكيز وتحديث الجلسة</button>
-        </form>
-      </div>
-
-      <!-- إعدادات الوكس -->
-      <div class="card">
-        <h2>🔵 إعدادات الوكس (Wox Settings)</h2>
-        <form action="/api/save-wox" method="POST">
-          <label>الفارق الزمني بين الرسائل (بالميلي ثانية):</label><br>
-          <input type="number" name="interval" value="${woxSettings.interval}" required><br><br>
-          <label>نص Wox:</label><br>
-          <textarea name="text">${woxSettings.text}</textarea><br>
-          <button class="btn btn-save" type="submit">💾 حفظ إعدادات Wox</button>
-        </form>
-      </div>
-
-      <!-- السجلات الحية -->
-      <div class="card">
-        <h2>📜 السجلات والأنشطة (Live Logs)</h2>
-        <button class="btn btn-save" onclick="location.reload()" style="margin-bottom: 10px;">🔄 تحديث السجلات</button>
-        <div class="logs">${logs.join("\n")}</div>
-      </div>
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>👑 Alox Dashboard</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; background-color: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
+    .container { max-width: 900px; margin: auto; background: #1e293b; padding: 25px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+    h1, h2 { color: #38bdf8; margin-top: 0; }
+    .status-badge { display: inline-block; padding: 6px 14px; border-radius: 20px; font-weight: bold; font-size: 14px; }
+    .status-online { background-color: #10b981; color: #fff; }
+    .status-offline { background-color: #ef4444; color: #fff; }
+    .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 15px; margin-right: 8px; font-weight: bold; transition: 0.2s; }
+    .btn:hover { opacity: 0.9; }
+    .btn-start { background-color: #0284c7; color: white; }
+    .btn-stop { background-color: #dc2626; color: white; }
+    .btn-save { background-color: #16a34a; color: white; width: 100%; margin-top: 10px; }
+    textarea, input[type="number"] { width: 100%; background: #0f172a; color: #38bdf8; border: 1px solid #334155; border-radius: 6px; padding: 12px; box-sizing: border-box; margin-top: 6px; font-family: monospace; }
+    .card { background: #1e293b; padding: 18px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #334155; }
+    .logs-box { background: #020617; color: #34d399; font-family: monospace; padding: 12px; height: 260px; overflow-y: scroll; border-radius: 6px; white-space: pre-wrap; font-size: 13px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>👑 Alox Dashboard & Control Unit</h1>
+    
+    <div class="card">
+      <h2>حالة البوت العامة</h2>
+      <p>الحالة الحالية: <span class="status-badge ${botStatus === 'ONLINE' ? 'status-online' : 'status-offline'}">${botStatus === 'ONLINE' ? '🟢 ONLINE' : '🔴 OFFLINE'}</span></p>
+      <button class="btn btn-start" onclick="controlBot('start')">▶️ تشغيل البوت (Start)</button>
+      <button class="btn btn-stop" onclick="controlBot('stop')">⛔ إيقاف البوت (Stop)</button>
     </div>
-  </body>
-  </html>
+
+    <div class="card">
+      <h2>🍪 إدارة الكوكيز (appstate.json)</h2>
+      <form action="/save-appstate" method="POST">
+        <label>انسخ كود JSON الخاص بالكوكيز هنا:</label>
+        <textarea name="appState" rows="8">${currentAppState}</textarea>
+        <button type="submit" class="btn btn-save">💾 حفظ الكوكيز وتحديث الجلسة</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>🔵 إعدادات الوكس (Wox Settings)</h2>
+      <form action="/save-wox" method="POST">
+        <label>الفارق الزمني بين الرسائل (بالميلي ثانية):</label>
+        <input type="number" name="interval" value="${woxConfig.interval}"><br><br>
+        <label>نص Wox:</label>
+        <textarea name="text" rows="6">${woxConfig.text}</textarea>
+        <button type="submit" class="btn btn-save">💾 حفظ إعدادات Wox</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>📜 السجلات والأنشطة (Live Logs)</h2>
+      <button class="btn btn-start" onclick="location.reload()" style="margin-bottom: 12px;">🔄 تحديث السجلات</button>
+      <div class="logs-box" id="logsBox">${logsHistory.join('\n')}</div>
+    </div>
+  </div>
+
+  <script>
+    function controlBot(action) {
+      fetch('/bot-control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: action })
+      }).then(() => location.reload());
+    }
+    const box = document.getElementById('logsBox');
+    box.scrollTop = box.scrollHeight;
+  </script>
+</body>
+</html>
   `;
   res.send(html);
 });
 
-// API التحكم بالتشغيل والإيقاف
-app.post("/api/control", (req, res) => {
+app.post("/bot-control", (req, res) => {
   const { action } = req.body;
-  if (action === "start") {
-    if (botStatus !== "ONLINE") startBot();
-  } else if (action === "stop") {
-    stopBot();
-  }
-  res.redirect("/");
+  if (action === "start") startBotEngine();
+  else if (action === "stop") stopBotEngine();
+  res.json({ success: true });
 });
 
-// API حفظ الكوكيز
-app.post("/api/save-cookies", (req, res) => {
-  const { appstate } = req.body;
+app.post("/save-appstate", (req, res) => {
   try {
-    const parsed = JSON.parse(appstate);
-    fs.writeFileSync(APPSTATE_PATH, JSON.stringify(parsed, null, 4), "utf8");
-    addLog("✅ تم حفظ الكوكيز الجديدة بنجاح في ملف appstate.json.");
+    const raw = req.body.appState;
+    JSON.parse(raw);
+    fs.writeFileSync(appStateFile, raw, "utf8");
+    addLog("💾 تم تحديث وحفظ الكوكيز بنجاح.");
     if (botStatus === "ONLINE") {
-      stopBot();
-      startBot();
+      stopBotEngine();
     }
+    startBotEngine();
   } catch (e) {
-    addLog(`❌ خطأ أثناء حفظ الكوكيز: ${e.message}`);
+    addLog("❌ فشل حفظ الكوكيز: تأكد من إدخال JSON صحيح.");
   }
   res.redirect("/");
 });
 
-// API حفظ إعدادات الوكس
-app.post("/api/save-wox", (req, res) => {
-  const { interval, text } = req.body;
-  if (interval) woxSettings.interval = parseInt(interval, 10);
-  if (text) woxSettings.text = text;
-  addLog("✅ تم تحديث إعدادات الوكس بنجاح.");
+app.post("/save-wox", (req, res) => {
+  try {
+    const config = {
+      enabled: true,
+      interval: parseInt(req.body.interval) || 15000,
+      text: req.body.text || DEFAULT_WOX_TEXT
+    };
+    fs.writeFileSync(woxConfigFile, JSON.stringify(config, null, 2), "utf8");
+    addLog("💾 تم حفظ وتحديث إعدادات Wox.");
+  } catch (e) {
+    addLog("❌ فشل حفظ إعدادات Wox.");
+  }
   res.redirect("/");
 });
 
-// ===============================
-// 7. تشغيل السيرفر تلقائياً
-// ===============================
 app.listen(PORT, () => {
   addLog(`🌐 يعمل خادم الداشبورد على المنفذ: ${PORT}`);
-  startBot(); // تشغيل تلقائي عند بدء التشغيل
+  startBotEngine();
 });
 
