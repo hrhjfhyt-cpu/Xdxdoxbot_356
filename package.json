@@ -31,5 +31,8 @@
     "uuid": "8.3.2",
     "ws3-fca": "^3.5.2",
     "ytpl": "^2.3.0"
+  },
+  "overrides": {
+    "gradient-string": "2.0.2"
   }
 }
