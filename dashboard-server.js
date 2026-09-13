@@ -126,6 +126,197 @@ function readBody(req) {
   });
 }
 
+/* =========================================================
+   AppState normalization
+   ========================================================= */
+
+function normalizeAppState(input) {
+  if (input === undefined || input === null) {
+    throw new Error("No login data supplied");
+  }
+
+  // إذا كان النص، حاول اعتباره JSON أولاً
+  if (typeof input === "string") {
+    const trimmed = input.trim();
+
+    if (!trimmed) {
+      throw new Error("Login data is empty");
+    }
+
+    try {
+      return normalizeAppState(JSON.parse(trimmed));
+    } catch (_) {
+      // ليس JSON، نحاول Cookie Header
+      return parseCookieHeader(trimmed);
+    }
+  }
+
+  // appState داخل object
+  if (
+    typeof input === "object" &&
+    !Array.isArray(input) &&
+    input.appState !== undefined
+  ) {
+    return normalizeAppState(input.appState);
+  }
+
+  // cookies داخل object
+  if (
+    typeof input === "object" &&
+    !Array.isArray(input) &&
+    input.cookies !== undefined
+  ) {
+    return normalizeAppState(input.cookies);
+  }
+
+  // مصفوفة cookies
+  if (Array.isArray(input)) {
+    const result = [];
+
+    for (const cookie of input) {
+      if (!cookie || typeof cookie !== "object") {
+        continue;
+      }
+
+      const key =
+        cookie.key ??
+        cookie.name ??
+        cookie.cookieName;
+
+      const value =
+        cookie.value ??
+        cookie.val ??
+        cookie.cookieValue;
+
+      if (
+        typeof key === "string" &&
+        key.trim() &&
+        value !== undefined &&
+        value !== null
+      ) {
+        result.push({
+          key: key.trim(),
+          value: String(value)
+        });
+      }
+    }
+
+    if (!result.length) {
+      throw new Error("No valid cookies found");
+    }
+
+    return result;
+  }
+
+  // object على شكل:
+  // { c_user: "...", xs: "...", fr: "..." }
+  if (
+    typeof input === "object" &&
+    !Array.isArray(input)
+  ) {
+    const result = [];
+
+    for (const [key, value] of Object.entries(input)) {
+      if (
+        value !== undefined &&
+        value !== null &&
+        typeof value !== "object"
+      ) {
+        result.push({
+          key,
+          value: String(value)
+        });
+      }
+    }
+
+    if (!result.length) {
+      throw new Error("No valid cookies found");
+    }
+
+    return result;
+  }
+
+  throw new Error("Unsupported login data format");
+}
+
+function parseCookieHeader(cookieString) {
+  const result = [];
+
+  const parts = cookieString.split(";");
+
+  for (const part of parts) {
+    const item = part.trim();
+
+    if (!item) {
+      continue;
+    }
+
+    const separator = item.indexOf("=");
+
+    if (separator <= 0) {
+      continue;
+    }
+
+    const key = item
+      .slice(0, separator)
+      .trim();
+
+    const value = item
+      .slice(separator + 1)
+      .trim();
+
+    if (!key) {
+      continue;
+    }
+
+    result.push({
+      key,
+      value
+    });
+  }
+
+  if (!result.length) {
+    throw new Error("Invalid cookie header");
+  }
+
+  return result;
+}
+
+function validateAppState(appState) {
+  if (!Array.isArray(appState)) {
+    throw new Error("AppState must be an array");
+  }
+
+  const hasUser = appState.some(
+    cookie => cookie.key === "c_user"
+  );
+
+  const hasSession =
+    appState.some(
+      cookie =>
+        cookie.key === "xs" ||
+        cookie.key === "sb"
+    );
+
+  if (!hasUser) {
+    throw new Error(
+      "AppState does not contain c_user"
+    );
+  }
+
+  if (!hasSession) {
+    throw new Error(
+      "AppState does not contain a Facebook session cookie"
+    );
+  }
+
+  return true;
+}
+
+/* =========================================================
+   Dashboard
+   ========================================================= */
+
 function serveIndex(res) {
   const file = path.join(publicDir, "index.html");
 
@@ -162,7 +353,7 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
-    // Everything below requires authentication
+    // Authentication
     if (!authenticated(req)) {
       return sendJSON(res, 401, {
         error: "Unauthorized"
@@ -178,7 +369,10 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Start
-    if (req.method === "POST" && req.url === "/api/bot/start") {
+    if (
+      req.method === "POST" &&
+      req.url === "/api/bot/start"
+    ) {
       const started = startBot();
 
       return sendJSON(res, 200, {
@@ -189,7 +383,10 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Stop
-    if (req.method === "POST" && req.url === "/api/bot/stop") {
+    if (
+      req.method === "POST" &&
+      req.url === "/api/bot/stop"
+    ) {
       const stopped = stopBot();
 
       return sendJSON(res, 200, {
@@ -200,14 +397,20 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Logs
-    if (req.method === "GET" && req.url === "/api/logs") {
+    if (
+      req.method === "GET" &&
+      req.url === "/api/logs"
+    ) {
       return sendJSON(res, 200, {
         logs
       });
     }
 
     // Wox config
-    if (req.method === "GET" && req.url === "/api/wox") {
+    if (
+      req.method === "GET" &&
+      req.url === "/api/wox"
+    ) {
       let config = {
         enabled: true,
         interval: 15000,
@@ -219,30 +422,41 @@ const server = http.createServer(async (req, res) => {
           config = {
             ...config,
             ...JSON.parse(
-              fs.readFileSync("./wox_config.json", "utf8")
+              fs.readFileSync(
+                "./wox_config.json",
+                "utf8"
+              )
             )
           };
         }
       } catch (e) {
-        addLog(`❌ Wox config read error: ${e.message}`);
+        addLog(
+          `❌ Wox config read error: ${e.message}`
+        );
       }
 
       return sendJSON(res, 200, config);
     }
 
     // Update Wox config
-    if (req.method === "POST" && req.url === "/api/wox") {
+    if (
+      req.method === "POST" &&
+      req.url === "/api/wox"
+    ) {
       const data = await readBody(req);
 
       const config = {
         enabled: Boolean(data.enabled),
+
         interval: Math.max(
           1000,
           Number(data.interval) || 15000
         ),
-        text: typeof data.text === "string"
-          ? data.text
-          : ""
+
+        text:
+          typeof data.text === "string"
+            ? data.text
+            : ""
       };
 
       fs.writeFileSync(
@@ -251,7 +465,9 @@ const server = http.createServer(async (req, res) => {
         "utf8"
       );
 
-      addLog("⚙️ Wox settings updated.");
+      addLog(
+        "⚙️ Wox settings updated."
+      );
 
       return sendJSON(res, 200, {
         ok: true,
@@ -259,80 +475,145 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
-    // Get Cookies (من ملف appstate.json)
-    if (req.method === "GET" && req.url === "/api/cookies") {
+    /* =====================================================
+       GET AppState
+       ===================================================== */
+
+    if (
+      req.method === "GET" &&
+      req.url === "/api/cookies"
+    ) {
       let cookies = "";
+
       try {
         if (fs.existsSync("./appstate.json")) {
-          cookies = fs.readFileSync("./appstate.json", "utf8");
+          cookies = fs.readFileSync(
+            "./appstate.json",
+            "utf8"
+          );
         }
       } catch (e) {
-        addLog(`❌ AppState read error: ${e.message}`);
+        addLog(
+          `❌ AppState read error: ${e.message}`
+        );
       }
 
-      return sendJSON(res, 200, { cookies });
+      return sendJSON(res, 200, {
+        cookies
+      });
     }
 
-    // Update Cookies (حفظ في ملف appstate.json)
-    if (req.method === "POST" && req.url === "/api/cookies") {
+    /* =====================================================
+       POST cookies - supports multiple formats
+       ===================================================== */
+
+    if (
+      req.method === "POST" &&
+      req.url === "/api/cookies"
+    ) {
       const data = await readBody(req);
 
-      let contentToSave = "";
-      if (typeof data.cookies === "string") {
-        contentToSave = data.cookies;
-      } else if (data.appState) {
-        contentToSave = JSON.stringify(data.appState, null, 2);
+      let source;
+
+      if (data.appState !== undefined) {
+        source = data.appState;
+      } else if (data.cookies !== undefined) {
+        source = data.cookies;
+      } else if (data.cookie !== undefined) {
+        source = data.cookie;
       } else {
-        return sendJSON(res, 400, {
-          error: "cookies string or appState is required"
-        });
+        source = data;
       }
 
-      // التحقق من صحة صيغة الـ JSON قبل الحفظ
       try {
-        JSON.parse(contentToSave);
+        const appState =
+          normalizeAppState(source);
+
+        validateAppState(appState);
+
+        fs.writeFileSync(
+          "./appstate.json",
+          JSON.stringify(
+            appState,
+            null,
+            2
+          ),
+          "utf8"
+        );
+
+        addLog(
+          `🍪 AppState updated successfully. ${appState.length} cookies saved. Restart the bot to apply.`
+        );
+
+        return sendJSON(res, 200, {
+          ok: true,
+          message:
+            "AppState saved successfully. Restart the bot to apply.",
+          cookies: appState.length
+        });
+
+      } catch (e) {
+        addLog(
+          `❌ Login data rejected: ${e.message}`
+        );
+
+        return sendJSON(res, 400, {
+          ok: false,
+          error: e.message
+        });
+      }
+    }
+
+    /* =====================================================
+       Old AppState endpoint - compatibility
+       ===================================================== */
+
+    if (
+      req.method === "POST" &&
+      req.url === "/api/appstate"
+    ) {
+      const data = await readBody(req);
+
+      try {
+        const source =
+          data.appState !== undefined
+            ? data.appState
+            : data.cookies !== undefined
+            ? data.cookies
+            : data;
+
+        const appState =
+          normalizeAppState(source);
+
+        validateAppState(appState);
+
+        fs.writeFileSync(
+          "./appstate.json",
+          JSON.stringify(
+            appState,
+            null,
+            2
+          ),
+          "utf8"
+        );
+
+        addLog(
+          `🔐 AppState updated. ${appState.length} cookies saved. Restart the bot to apply.`
+        );
+
+        return sendJSON(res, 200, {
+          ok: true,
+          message:
+            "AppState saved successfully. Restart the bot to apply.",
+          cookies: appState.length
+        });
+
       } catch (e) {
         return sendJSON(res, 400, {
-          error: "Invalid JSON format for appstate"
+          ok: false,
+          error: e.message
         });
       }
-
-      fs.writeFileSync(
-        "./appstate.json",
-        contentToSave,
-        "utf8"
-      );
-
-      addLog("🍪 AppState updated successfully. Restart bot to apply.");
-
-      return sendJSON(res, 200, {
-        ok: true,
-        message: "AppState saved. Restart the bot to apply it."
-      });
-    }
-
-    // AppState update (المسار القديم للحفاظ على التوافقية)
-    if (req.method === "POST" && req.url === "/api/appstate") {
-      const data = await readBody(req);
-
-      if (!Array.isArray(data.appState) && typeof data.appState !== "object") {
-        return sendJSON(res, 400, {
-          error: "appState must be a valid JSON array or object"
-        });
-      }
-
-      fs.writeFileSync(
-        "./appstate.json",
-        JSON.stringify(data.appState, null, 2),
-        "utf8"
-      );
-
-      addLog("🔐 AppState updated. Restart bot to apply.");
-
-      return sendJSON(res, 200, {
-        ok: true,
-        message: "AppState saved. Restart the bot to apply it."
-      });
     }
 
     return sendJSON(res, 404, {
@@ -348,15 +629,23 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, "0.0.0.0", () => {
-  addLog(`🌐 Dashboard server running on port ${PORT}`);
+server.listen(
+  PORT,
+  "0.0.0.0",
+  () => {
+    addLog(
+      `🌐 Dashboard server running on port ${PORT}`
+    );
 
-  // تشغيل البوت تلقائيًا عند تشغيل Railway
-  startBot();
-});
+    // تشغيل البوت تلقائيًا عند تشغيل Railway
+    startBot();
+  }
+);
 
 function shutdown() {
-  addLog("🛑 Shutting down dashboard...");
+  addLog(
+    "🛑 Shutting down dashboard..."
+  );
 
   if (isBotRunning()) {
     botProcess.kill("SIGTERM");
@@ -367,6 +656,12 @@ function shutdown() {
   });
 }
 
-process.on("SIGTERM", shutdown);
-process.on("SIGINT", shutdown);
+process.on(
+  "SIGTERM",
+  shutdown
+);
 
+process.on(
+  "SIGINT",
+  shutdown
+);
